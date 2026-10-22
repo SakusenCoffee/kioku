@@ -78,9 +78,9 @@ More screenshots: [docs/screenshots.md](docs/screenshots.md).
 | **Web pages** (cards, stats, editor) | WKWebView | Android System WebView | Qt WebEngine (Chromium), as on the desktop |
 | **Windows** | Full screen, ‹ Back closes, popups as cards above the keyboard | Full screen, Back key closes, popups as cards above the keyboard | Desktop windows, a dock, touch or mouse pad mode |
 | **Add-ons** | Yes; 15 tested. No subprocesses (MeCab readings in Japanese Support) | Yes; 15 popular ones tested | Yes, as on Linux |
-| **Card audio** | mp3; ogg/opus not yet | mp3, wav, ogg, opus | Not tested |
-| **Text-to-speech** (`{{tts}}`) | Not yet | Not yet | Not tested |
-| **Statistics: Save PDF** | Not yet | Yes (to Exports/) | Not tested |
+| **Card audio** | mp3, wav, ogg, opus (next release) | mp3, wav, ogg, opus | Not tested |
+| **Text-to-speech** (`{{tts}}`) | Yes, system voices (next release) | Yes, system TTS engine (next release) | Not tested |
+| **Statistics: Save PDF** | Yes, to Exports/ (next release) | Yes (to Exports/) | Not tested |
 | **AnkiWeb sync** | Yes, media too; login kept across restarts | Yes, media too; login kept across restarts | Yes |
 | **Your files** | Files app → Kioku (Anki2/, Exports/) | Import with the system file picker; exports go to `Android/data/io.ankidesk.kioku/files/Exports` (on Android 11+ reach it over USB) | Import from Downloads, share decks to Kioku, link phone folders |
 | **Other Linux apps** | No | No | Yes: file manager, terminal, web browser… from Termux |
@@ -131,15 +131,16 @@ Native variants, as of the last device test ([details](docs/testing.md)):
   started from the keyboard, and prompts need their OK button (fixed for the
   next release).
 - **Android:** after a link in a card opens the "Open with" chooser, the status
-  and navigation bars stay hidden until Kioku is restarted.
+  and navigation bars stay hidden until Kioku is restarted (fixed for the next
+  release).
 - **Android:** exported files and PDFs go to the app's own folder, which
   Android 11 and later hide from most file managers; copy them over USB.
 - **Android:** Back while reviewing leaves the app instead of returning to the
   deck list.
-- **iPhone:** Save PDF in Statistics does nothing yet; Ogg/Opus card audio is
-  silent.
-- **Both:** `{{tts}}` text-to-speech is silent. The card types editor is
-  cramped in portrait.
+- **iPhone:** Save PDF in Statistics does nothing; Ogg/Opus card audio is
+  silent (both fixed for the next release).
+- **Both:** `{{tts}}` text-to-speech is silent (fixed for the next release).
+  The card types editor is cramped in portrait.
 
 ## Install
 

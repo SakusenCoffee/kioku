@@ -40,9 +40,10 @@ card and review counts identical to the desktop.
 | Deck list (258k cards) | works; fits the screen |
 | Reviewing: question, answer, answer buttons, intervals, revlog written | works |
 | Card audio (mp3) | works, including interrupting and the next card |
-| Card audio (ogg/opus) | not supported yet |
+| Card audio: Ogg Vorbis, Ogg Opus | works (iOS 27.0.1): AVAudioPlayer can't play Ogg, so these play in a hidden web view; stopping mid-file and the next file work |
+| `{{tts}}` text-to-speech | works: AVSpeechSynthesizer, 193 voices (Apple_Samantha …); stop mid-sentence works |
 | Statistics (new stats page, charts, calendar) | works |
-| Statistics: Save PDF | not implemented: the button does nothing (no file, no message) |
+| Statistics: Save PDF | works: 4-page A4 PDF in Documents/Exports |
 | Browse | works; sidebar behind a title bar button in portrait |
 | Add, editor | works |
 | Image occlusion: mask editor with an image | works (masks need touch testing) |
@@ -180,11 +181,11 @@ cards and 13,677 media files.
 | Card info (forgetting curve) | ✅ | not repeated |
 | Edit current card, change a field, saved | ✅ | not repeated (editing tested in Add and Browse) |
 | Card audio (mp3), replay button | ✅ AVFoundation | ✅ MediaPlayer |
-| `{{tts}}` text-to-speech | ❌ no TTS player | ❌ no TTS player |
+| `{{tts}}` text-to-speech | ✅ fixed later that day: AVSpeechSynthesizer (see below) | ✅ fixed later that day: TextToSpeech (see below) |
 | Links in cards (`<a href>`) | – | ✅ open the system browser chooser |
 | Landscape | not driven | ✅ layout adapts; drag to scroll works |
 | Back key while reviewing | – | ⚠️ moves the app to the background (AnkiDroid users expect the deck list) |
-| Status and navigation bars after another app's popup (browser chooser) | – | ❌ both bars stay hidden until the app restarts (see below) |
+| Status and navigation bars after another app's popup (browser chooser) | – | ✅ fixed later that day (see below); before: both bars stayed hidden until the app restarted |
 
 ### Adding and editing
 
@@ -202,7 +203,7 @@ cards and 13,677 media files.
 | Area | iOS | Android |
 | --- | --- | --- |
 | Open, search, select a row, editor below the table | ✅ | ✅ |
-| Searching with the keyboard's Enter key | ✅ | ❌ the keyboard shows "Next" and moves the focus instead of searching; fixed in `windows.py` (needs a rebuild, see fixes.md) |
+| Searching with the keyboard's Enter key | ✅ | ✅ fixed later that day (see below); before: the keyboard showed "Next" and moved the focus instead of searching |
 | Sidebar button, sidebar search | ⚠️ works; the sidebar squeezes the editor (Back field under Tags) | ✅ |
 | Preview, Change Deck, Delete notes | ✅ | not repeated |
 | Window title | ⚠️ long titles are cut at both ends ("rowse (24 of 24 cards selectec") | ✅ |
@@ -216,7 +217,7 @@ cards and 13,677 media files.
 | Deck options: change a limit, Save | ✅ | opens (`sweep.sh`); saving not repeated |
 | Filtered deck: build, study, delete | ✅ | ✅ |
 | Statistics page | ✅ | ✅ |
-| Statistics: Save PDF | ❌ nothing happens | ⚠️ PDF written to `Exports/`, but no message says so |
+| Statistics: Save PDF | ✅ fixed later that day: A4 PDF in Documents/Exports (see below) | ⚠️ PDF written to `Exports/`, but no message says so |
 | Export (.colpkg) | ✅ Documents/Exports, visible in Files | ⚠️ written to `Android/data/io.ankidesk.kioku/files/Exports`, which Android 11+ hides from most file managers; there is no share option |
 | Create Backup | ✅ | ✅ |
 | Check Database, Check Media, Empty Cards | ✅ | ✅ (identical results on both) |
@@ -258,19 +259,31 @@ the next sync asks Upload/Download again.
 - **Android: keyboard Enter = "Next".** Qt reports `EnterKeyNext` for
   single-line fields, so Browse's search, prompts and the login can't be
   submitted from the keyboard. Fixed in `shared/python/kioku/windows.py`
-  (`EnterKeyFilter`); verified by loading it into the running app; ships with
-  the next build.
+  (`EnterKeyFilter`); verified in the build installed later that day.
 - **Android: system bars disappear** after a popup from another app (the
   "Open with" browser chooser). Qt 6.11's
   `QtWindowInsetsController.isFullScreen()` (API 30+) treats "status bar not
   visible" as full screen when the window regains focus, and
-  `restoreFullScreenVisibility()` then hides the bars for good. Needs an
-  `onWindowFocusChanged` override in `KiokuActivity` that shows the bars again
-  (Kioku never uses full screen).
+  `restoreFullScreenVisibility()` then hides the bars for good. Fixed:
+  `KiokuActivity.onWindowFocusChanged` shows the bars instead.
 - **Android: exports are hard to reach** on Android 11+ (`Android/data`).
   A share sheet or a document provider would fix it.
-- **iOS: Save PDF** does nothing (WKWebView's `createPDF` could implement it).
-- **Both: `{{tts}}`** is silent; AVSpeechSynthesizer / Android TextToSpeech
-  players are missing.
+- Fixed later that day: iOS Save PDF, `{{tts}}` on both, iOS Ogg audio (see below).
 - Cosmetic: Browse title cut on iOS, "History ▯" glyph on Android, cramped
   card types editor, iOS conflict box layout, Review Heatmap a little too wide.
+
+### Fixes tested later the same day
+
+New builds with the fixes on both phones (installed over the old ones, data
+kept): iPhone 15 Pro Max (now iOS 27.0.1) and Samsung M30s.
+
+| Fix | iOS | Android |
+| --- | --- | --- |
+| Ogg Vorbis and Ogg Opus card audio | ✅ hidden web view fallback; through Anki's queue, stop mid-file, mp3 unchanged | already worked (MediaPlayer) |
+| Browse search from the keyboard | – | ✅ keyboard shows ✓ instead of Next; tapping it runs the search (301 → 602 cards) |
+| `{{tts}}` | ✅ 193 voices, `en_US` → Apple_Samantha; stop mid-sentence | ✅ Samsung engine's 4 voices (en_US, en_GB, en_IN, hi_IN); a sentence spoken and reported done |
+| Statistics: Save PDF | ✅ 4 A4 pages | (already worked) |
+| System bars after the "Open with" chooser | – | ✅ both bars back after closing the chooser |
+
+Samsung's TTS engine reports locales as `eng` (no country); the language is
+taken from its voice names (`en-US-SMTf00`).

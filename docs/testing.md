@@ -381,3 +381,29 @@ AnkiDroid was still writing to. Kioku can't detect it, so the mode stays
 hidden until Anki's core (Kioku's and AnkiDroid's) keeps the lock.
 
 Not done: big collection timings, Samsung M30s, device reboots.
+
+## Syncing when switching apps, AnkiDroid's collection explained (2026-10-23)
+
+Guide: [sync-server.md](sync-server.md#syncing-when-you-switch-between-kioku-and-ankidroid).
+
+Host tests: 68 passing. New (`test_switchsync.py`, real sync server, a
+second collection standing in for AnkiDroid): when it applies (phone's
+server, automatic sync on, logged in), leaving sends the changes before
+"AnkiDroid" syncs, nothing sent without changes or while an operation runs,
+a needed full sync never done in the background (AnkiDroid's copy
+untouched, Anki's own sync with its question on return), a failed sync
+left for Anki to show, coming back syncs only after 2 s away, coming back
+during the background sync, the background watch on and off. The Advanced
+tab: "AnkiDroid's collection (not available)" shows the explanation and
+changes nothing, a profile saved in that mode shows as its own collection
+and opens it (with a message), automatic sync off is pointed out.
+
+Emulator, profile **ServerTest** (AnkiDroid's media, phone's server):
+
+| Test | Result |
+| --- | --- |
+| Kioku adds a note, AnkiDroid started | ✅ background sync 61 ms, done inside onPause (before AnkiDroid's first screen); 1.4 s for the first sync after Kioku starts (onPause stops waiting at 400 ms) |
+| AnkiDroid gets the note | ✅ after tapping its Sync: its automatic sync runs only on start/exit and only if its last sync was more than 10 minutes ago |
+| AnkiDroid answers a card and syncs, back to Kioku | ✅ Kioku's sync on return brought the review in |
+| Profile saved as "AnkiDroid's collection" opens | ✅ its own collection, message says why |
+| Tapping "AnkiDroid's collection (not available)" | ✅ the explanation (a scrollable window: a QMessageBox this tall was sometimes drawn squashed) |

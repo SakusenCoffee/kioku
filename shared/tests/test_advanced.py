@@ -57,6 +57,9 @@ class PM:
     def set_sync_username(self, name) -> None:  # type: ignore[no-untyped-def]
         self.profile["syncUser"] = name
 
+    def auto_syncing_enabled(self) -> bool:
+        return self.profile.get("autoSync", True)
+
     def clear_sync_auth(self) -> None:
         for key in ("syncKey", "syncUser", "currentSyncUrl"):
             self.profile.pop(key, None)
@@ -285,11 +288,35 @@ def folder_mode_offered(monkeypatch):
     monkeypatch.setattr(ankidroid, "FOLDER_READY", True)
 
 
-def test_folder_mode_hidden_until_ready(prefs, monkeypatch) -> None:
+def test_folder_mode_explained_until_ready(prefs, monkeypatch, droid_folder) -> None:
     monkeypatch.setattr(ankidroid, "FOLDER_READY", False)
+    shown: list[str] = []
+    monkeypatch.setattr("aqt.utils.showText", lambda text, **k: shown.append(text))
     group = droid_group(prefs)
-    assert ankidroid.FOLDER not in group.radios
-    assert set(group.radios) == {ankidroid.OFF, ankidroid.MEDIA}
+    group.folder.setText(droid_folder)
+    radio = group.radios[ankidroid.FOLDER]
+    assert "not available" in radio.text()
+    radio.click()
+    # the popup says why and what to use instead; nothing changes
+    assert len(shown) == 1 and "backups" in shown[0] and "AnkiDroid's media" in shown[0]
+    assert group._mode == ankidroid.OFF and group.radios[ankidroid.OFF].isChecked()
+    assert group.before_close() is None
+    assert ankidroid.load(prefs.mw.pm.profile).mode == ankidroid.OFF
+
+
+def test_folder_profile_shown_as_own_until_ready(prefs, monkeypatch, droid_folder) -> None:
+    monkeypatch.setattr(ankidroid, "FOLDER_READY", False)
+    ankidroid.store(prefs.mw.pm.profile, ankidroid.Source(mode=ankidroid.FOLDER, folder=droid_folder))
+    group = droid_group(prefs)
+    assert group.radios[ankidroid.OFF].isChecked()
+
+
+def test_media_mode_warns_without_auto_sync(prefs, droid_folder) -> None:
+    prefs.mw.pm.profile["autoSync"] = False
+    group = droid_group(prefs)
+    group.folder.setText(droid_folder)
+    group.radios[ankidroid.MEDIA].click()
+    assert "Automatic sync is off" in group.checks.text()
 
 
 def droid_group(prefs):  # type: ignore[no-untyped-def]

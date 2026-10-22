@@ -485,16 +485,24 @@ public class KiokuBridge {
     // after onStop Qt's event loop no longer runs until Kioku is back
     private static final int STOP_WAIT_MS = 1500;
 
+    private static long pausedAt;
+
     /** From KiokuActivity, before Qt hears of the change. On pause and stop,
-     * waits for Python to close AnkiDroid's collection; on resume (and the
-     * activity and permission results that come just before it) asks Python
-     * to reopen it, ahead of anything else that reaches Python. */
+     * waits for Python (kioku.background) to close AnkiDroid's collection or
+     * to send its changes to the sync server; on resume (and the activity and
+     * permission results that come just before it) tells Python, ahead of
+     * anything else that reaches it. */
     static void lifecycle(String state) {
+        if (state.equals("pause")) {
+            pausedAt = System.currentTimeMillis();
+        }
         if (!watchLifecycle) {
             return;
         }
         if (state.equals("resume")) {
-            event(obj("type", "foreground"));
+            long away = pausedAt == 0 ? 0 : System.currentTimeMillis() - pausedAt;
+            pausedAt = 0;
+            event(obj("type", "foreground", "away_ms", away));
             return;
         }
         int waitMs = state.equals("pause") ? PAUSE_WAIT_MS : STOP_WAIT_MS;
@@ -508,8 +516,8 @@ public class KiokuBridge {
             }
             answer = request(obj("type", "background", "state", state), (int) left);
             // "busy": an operation is finishing; Qt's thread gets to handle
-            // its completion between two requests
-            if (answer == null || !answer.equals("busy")) {
+            // its completion between two requests. "wait": a sync is running
+            if (answer == null || !(answer.equals("busy") || answer.equals("wait"))) {
                 break;
             }
             try {
@@ -520,7 +528,7 @@ public class KiokuBridge {
         }
         Log.i(TAG, "background " + state + ": " + answer + " in "
                 + (System.currentTimeMillis() - start) + " ms");
-        if (state.equals("stop") && !"closed".equals(answer) && !"none".equals(answer)) {
+        if (state.equals("stop") && "busy".equals(answer)) {
             Toast.makeText(activity, "Kioku is still busy with AnkiDroid's collection, so AnkiDroid "
                     + "can't open it until you go back to Kioku.", Toast.LENGTH_LONG).show();
         }

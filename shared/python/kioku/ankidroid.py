@@ -182,6 +182,14 @@ def media_paths(original):  # type: ignore[no-untyped-def]
 # App integration
 ######################################################################
 
+FOLDER_UNAVAILABLE = (
+    "Opening AnkiDroid's own collection isn't available. Anki locks a "
+    "collection so that only one app can open it, but its automatic backups "
+    "release that lock while the collection stays open, so Kioku and AnkiDroid "
+    "could both change it at once and lose changes. Use “AnkiDroid's media” "
+    "and the sync server on this phone instead."
+)
+
 LOCKED_HELP = (
     "AnkiDroid has this collection open. Close AnkiDroid completely (Android "
     "Settings › Apps › AnkiDroid › Force stop), then try again."
@@ -229,17 +237,25 @@ def install() -> None:
     original_load = aqt.main.AnkiQt._loadCollection
 
     def load_collection(self) -> None:  # type: ignore[no-untyped-def]
+        from kioku import background
+
+        background.stop()
+        try:
+            _load(self)
+        finally:
+            background.refresh(self)
+
+    def _load(self) -> None:  # type: ignore[no-untyped-def]
         source = current(self)
-        _watch_background(self, False)
         if source.mode == OFF:
             set_override("", None, None)
             return original_load(self)
         try:
+            if source.mode == FOLDER and not FOLDER_READY:
+                raise Exception(FOLDER_UNAVAILABLE)
             if found := problems(source):
                 raise Exception("\n".join(found))
             _open(self, source)
-            if source.mode == FOLDER:
-                _watch_background(self, True)
         except Exception as err:
             # never leave the profile unusable: fall back to Kioku's own
             # collection and say why
@@ -253,7 +269,11 @@ def install() -> None:
             message = (
                 "This profile couldn't use AnkiDroid's folder, so it opened "
                 f"Kioku's own collection instead.\n\n{explain(err)}\n\n"
-                "Turn it on again in Preferences › Advanced."
+                + (
+                    "See Preferences › Advanced."
+                    if str(err) == FOLDER_UNAVAILABLE
+                    else "Turn it on again in Preferences › Advanced."
+                )
             )
             self.progress.single_shot(500, lambda: _warn(message), False)
 
@@ -262,7 +282,9 @@ def install() -> None:
     original_unload = aqt.main.AnkiQt._unloadCollection
 
     def unload_collection(self) -> None:  # type: ignore[no-untyped-def]
-        _watch_background(self, False)
+        from kioku import background
+
+        background.stop()
         original_unload(self)
 
     aqt.main.AnkiQt._unloadCollection = unload_collection
@@ -271,6 +293,15 @@ def install() -> None:
     _patch_colpkg_import()
     _defer_while_closed()
     gui_hooks.main_window_did_init.append(lambda: _add_menu_action(aqt.mw))
+    # a first login or a new sync server: whether to sync when switching apps
+    gui_hooks.sync_did_finish.append(lambda: _refresh_background(aqt.mw))
+
+
+def _refresh_background(mw) -> None:  # type: ignore[no-untyped-def]
+    from kioku import background
+
+    if mw is not None:
+        background.refresh(mw)
 
 
 def _open(mw, source: Source) -> None:  # type: ignore[no-untyped-def]
@@ -528,18 +559,6 @@ def _quit(mw) -> None:  # type: ignore[no-untyped-def]
     # the collection is closed and saved; nothing else to write
     mw.pm.save()
     os._exit(0)
-
-
-def _watch_background(mw, on: bool) -> None:  # type: ignore[no-untyped-def]
-    import kioku_platform as platform
-
-    watch = getattr(platform, "watch_background", None)
-    if watch is None:
-        return
-    if on:
-        watch(lambda _state: close_for_ankidroid(mw), lambda: reopen_after_ankidroid(mw))
-    else:
-        watch(None, None)
 
 
 def _add_menu_action(mw) -> None:  # type: ignore[no-untyped-def]

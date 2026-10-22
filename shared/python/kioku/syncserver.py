@@ -186,6 +186,15 @@ def status() -> Status:
     return Status(**asdict(_status))
 
 
+def own_url() -> str | None:
+    """The URL a profile in this app syncs with the running server by."""
+    st = status()
+    if not st.running:
+        return None
+    host = "127.0.0.1" if st.host in ("127.0.0.1", "0.0.0.0") else st.host
+    return f"http://{host}:{st.port}/"
+
+
 def _rsbridge():  # type: ignore[no-untyped-def]
     from anki import _rsbridge
 

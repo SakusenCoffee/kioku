@@ -80,6 +80,11 @@ def install() -> None:
                 callback()
             if after:
                 after()
+            else:
+                from kioku import background
+
+                # the sync server or this profile's sync settings may have changed
+                background.refresh(self.mw)
 
         original_accept(self, done)
 
@@ -379,11 +384,7 @@ class SyncServerGroup:
     ##################################################################
 
     def own_url(self) -> str | None:
-        st = syncserver.status()
-        if not st.running:
-            return None
-        host = "127.0.0.1" if st.host in ("127.0.0.1", "0.0.0.0") else st.host
-        return f"http://{host}:{st.port}/"
+        return syncserver.own_url()
 
     def _on_use_here(self) -> None:
         from aqt.utils import askUser, showWarning, tooltip
@@ -469,6 +470,36 @@ MODE_LABELS = {
         "open at a time.",
     ),
 }
+FOLDER_UNAVAILABLE_LABEL = (
+    "AnkiDroid's collection (not available)",
+    "Opening AnkiDroid's own collection could lose changes: tap for why.",
+)
+
+FOLDER_UNAVAILABLE = """Opening AnkiDroid's own collection isn't available, \
+because it can lose your changes.
+
+Why: Anki locks a collection while it is open, so that only one app can change \
+it. But Anki's automatic backups (in Kioku and in AnkiDroid) release that lock \
+while the collection stays open. After one, Kioku and AnkiDroid could both \
+have the collection open and change it at once, and one app's changes get \
+lost. This happened while testing, and no app can tell from the outside that \
+the lock is gone.
+
+Instead, choose “AnkiDroid's media” and sync the two apps through the sync \
+server on this phone; media still exists only once:
+
+• Kioku: turn the sync server on and tap “Use for this profile”. Keep \
+“Automatically sync on profile open/close” on (Preferences › Syncing): Kioku \
+then syncs when you leave it and when you come back.
+• AnkiDroid: Settings › Sync: set the custom sync server, log in, turn on \
+Automatic synchronization, and turn off Fetch media on sync (else AnkiDroid \
+uploads its media to the server, a second copy). AnkiDroid syncs by itself \
+only when it starts or closes and its last sync was over 10 minutes ago: \
+tap its Sync button after switching to see Kioku's latest changes, and \
+before switching back.
+
+A change reaches the other app once both have synced. If both apps change the \
+same card in between, the later change wins, as with any Anki sync."""
 
 ANKIDROID_INTRO = """For AnkiDroid builds that keep their folder in shared storage, such as the \
 GitHub "full" build (usually /storage/emulated/0/AnkiDroid). The Play Store \
@@ -485,7 +516,12 @@ in AnkiDroid too, or AnkiDroid uploads all its media to the server.
 • Media this profile adds goes straight into AnkiDroid's folder.
 • Check Media won't delete unused files unless you allow it below: a file \
 may belong to a card AnkiDroid hasn't synced yet.
-• This profile's own media folder is left as it is.""",
+• This profile's own media folder is left as it is.
+
+Cards reach AnkiDroid only through syncing. With “Automatically sync on \
+profile open/close” on (Preferences › Syncing), Kioku syncs when you leave it \
+and when you come back. AnkiDroid syncs by itself only on start or exit and \
+at most every 10 minutes: tap its Sync button after switching.""",
     ankidroid.FOLDER: """This profile will open AnkiDroid's own collection. Anki locks a collection \
 while it is open, so only one app can have it:
 
@@ -527,9 +563,9 @@ class AnkiDroidGroup:
         self.modes = QButtonGroup(self.box)
         self.radios = {}
         for index, mode in enumerate(ankidroid.MODES):
-            if mode == ankidroid.FOLDER and not ankidroid.FOLDER_READY and self.saved.mode != mode:
-                continue
             title, explanation = MODE_LABELS[mode]
+            if mode == ankidroid.FOLDER and not ankidroid.FOLDER_READY:
+                title, explanation = FOLDER_UNAVAILABLE_LABEL
             radio = QRadioButton(title)
             self.radios[mode] = radio
             self.modes.addButton(radio, index)
@@ -564,6 +600,9 @@ class AnkiDroidGroup:
         note.setWordWrap(True)
         layout.addWidget(note)
 
+        if self.saved.mode == ankidroid.FOLDER and not ankidroid.FOLDER_READY:
+            # opening the profile fell back already; never offer it back
+            self.saved.mode = ankidroid.OFF
         self.radios[self.saved.mode].setChecked(True)
         self.folder.setText(self.saved.folder)
         self.allow_delete.setChecked(self.saved.allow_delete_unused)
@@ -627,6 +666,11 @@ class AnkiDroidGroup:
                 lines.append("✗ This profile doesn't sync with the server yet: “Use for this profile”")
             else:
                 lines.append("✓ This profile syncs with the phone's server")
+            if not self.mw.pm.auto_syncing_enabled():
+                lines.append(
+                    "✗ Automatic sync is off (Preferences › Syncing): changes reach "
+                    "AnkiDroid only when you sync by hand"
+                )
         self.checks.setText("<br>".join(_escape(line) for line in lines))
         self.grant.setVisible(not access)
         self.app_info.setVisible(bool(installed))
@@ -655,6 +699,13 @@ class AnkiDroidGroup:
         from aqt.utils import askUser
 
         mode = ankidroid.MODES[index]
+        if mode == ankidroid.FOLDER and not ankidroid.FOLDER_READY:
+            from aqt.utils import showText
+
+            self.radios[self._mode].setChecked(True)
+            # scrollable: a message box taller than the screen gets squashed
+            showText(FOLDER_UNAVAILABLE, parent=self.tab.prefs, title="AnkiDroid's collection")
+            return
         if mode != ankidroid.OFF and mode != self.saved.mode:
             if not askUser(MODE_WARNING[mode], parent=self.tab.prefs, title="AnkiDroid's folder"):
                 self.radios[self._mode].setChecked(True)

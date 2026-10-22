@@ -179,12 +179,13 @@ def launch_ankidroid() -> None:
 
 
 def watch_background(
-    on_background: Callable[[str], str] | None, on_foreground: Callable[[], None] | None
+    on_background: Callable[[str], str] | None, on_foreground: Callable[[int], None] | None
 ) -> None:
     """While set, Kioku's activity waits in onPause and onStop (Android's UI
     thread, briefly) for on_background("pause" or "stop") to return
-    "closed", "none" or "busy" (asked again until time runs out), and
-    on_foreground() runs on resume before any other event. None stops it."""
+    "closed", "none", "busy" or "wait" (the last two are asked again
+    until time runs out), and on_foreground(ms away) runs on resume before
+    any other event. None stops it."""
     from . import bridge
 
     if on_background is None or on_foreground is None:
@@ -194,11 +195,13 @@ def watch_background(
     _foreground[:] = [on_foreground]
     if not _foreground_listening:
         _foreground_listening.append(True)
-        bridge.listen("foreground", lambda _event: [f() for f in _foreground])
+        bridge.listen(
+            "foreground", lambda event: [f(int(event.get("away_ms", 0))) for f in _foreground]
+        )
     bridge.call("lifecycle.watch", on=True)
 
 
-_foreground: list[Callable[[], None]] = []
+_foreground: list[Callable[[int], None]] = []
 _foreground_listening: list[bool] = []
 
 

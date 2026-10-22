@@ -353,7 +353,8 @@ def make_mw(tmp_path, source: ankidroid.Source) -> FakeMW:
     return FakeMW(FakePM(str(folder), profile))
 
 
-def test_profile_opens_ankidroid_collection(droid, tmp_path, load_collection) -> None:
+def test_profile_opens_ankidroid_collection(droid, tmp_path, load_collection, monkeypatch) -> None:
+    monkeypatch.setattr(ankidroid, "FOLDER_READY", True)
     mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
     load_collection(mw)
     try:
@@ -367,7 +368,8 @@ def test_profile_opens_ankidroid_collection(droid, tmp_path, load_collection) ->
         mw.col.close()
 
 
-def test_profile_falls_back_when_locked(droid, tmp_path, load_collection) -> None:
+def test_profile_falls_back_when_locked(droid, tmp_path, load_collection, monkeypatch) -> None:
+    monkeypatch.setattr(ankidroid, "FOLDER_READY", True)
     mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
     proc = hold(str(droid / "collection.anki2"))
     try:
@@ -422,6 +424,7 @@ def test_profile_with_media_mode(droid, tmp_path, load_collection) -> None:
 def folder_mw(droid, tmp_path, load_collection, platform, monkeypatch):
     """A profile on AnkiDroid's collection, open; the retry dialog recorded."""
     retries: list = []
+    monkeypatch.setattr(ankidroid, "FOLDER_READY", True)
     monkeypatch.setattr(ankidroid, "_show_retry", lambda mw, err: retries.append(err))
     monkeypatch.setattr(ankidroid, "_close_retry", lambda: None)
     # what runs once Qt has seen the app active runs later, as on a phone
@@ -433,7 +436,7 @@ def folder_mw(droid, tmp_path, load_collection, platform, monkeypatch):
     _, on_foreground = platform.watching
 
     def foreground() -> None:
-        on_foreground()
+        on_foreground(5000)
         while later:
             later.pop(0)()
 
@@ -446,7 +449,20 @@ def folder_mw(droid, tmp_path, load_collection, platform, monkeypatch):
         col.close()
 
 
-def test_watches_background_only_for_folder(droid, tmp_path, load_collection, platform) -> None:
+def test_folder_profile_falls_back_until_ready(droid, tmp_path, load_collection, platform) -> None:
+    mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
+    load_collection(mw)
+    try:
+        assert mw.col.path == os.path.join(mw.pm.folder, "collection.anki2")
+        assert ankidroid.load(mw.pm.profile).mode == ankidroid.OFF
+        assert len(mw.messages) == 1
+        assert platform.watching is None
+    finally:
+        mw.col.close()
+
+
+def test_watches_background_only_for_folder(droid, tmp_path, load_collection, platform, monkeypatch) -> None:
+    monkeypatch.setattr(ankidroid, "FOLDER_READY", True)
     mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
     load_collection(mw)
     assert platform.watching is not None

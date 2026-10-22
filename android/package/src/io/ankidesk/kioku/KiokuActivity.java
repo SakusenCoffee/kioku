@@ -2,10 +2,12 @@ package io.ankidesk.kioku;
 
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
+import android.view.WindowInsets;
 
 import org.qtproject.qt.android.bindings.QtActivity;
 
@@ -94,6 +96,20 @@ public class KiokuActivity extends QtActivity {
             }
         }
         f.delete();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        // Qt's version calls QtWindowInsetsController.restoreFullScreenVisibility(),
+        // which on Android 11+ takes the bars hidden by another app's popup (the
+        // "Open with" chooser) for full screen and hides them for good. Kioku
+        // is never full screen: show the bars instead. (Activity's own
+        // onWindowFocusChanged does nothing.)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            super.onWindowFocusChanged(hasFocus);
+        } else if (hasFocus) {
+            getWindow().getInsetsController().show(WindowInsets.Type.systemBars());
+        }
     }
 
     @Override

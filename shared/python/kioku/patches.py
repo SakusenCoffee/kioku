@@ -279,5 +279,6 @@ def _patch_audio() -> None:
 
     def setup_audio(taskman, base_folder: str, media_folder: str) -> None:
         aqt.sound.av_player.players.append(platform.audio_player(taskman, media_folder))
+        aqt.sound.av_player.players.append(platform.tts_player(taskman))
 
     aqt.sound.setup_audio = setup_audio

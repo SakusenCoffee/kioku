@@ -12,6 +12,9 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
@@ -44,7 +47,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Everything Kioku's Python code needs from Android (python/kioku_platform),
@@ -55,7 +60,7 @@ import java.util.concurrent.FutureTask;
  *
  * Web views stand in for Qt WebEngine; file picking copies the chosen files
  * into the app (Python cannot open content:// URIs); MediaPlayer plays card
- * audio (Python cannot start mpv).
+ * audio (Python cannot start mpv) and TextToSpeech speaks {{tts}}.
  */
 public class KiokuBridge {
     private static final String TAG = "Kioku";
@@ -65,6 +70,7 @@ public class KiokuBridge {
     private static final Handler ui = new Handler(Looper.getMainLooper());
     private static final Map<Integer, Page> pages = new ConcurrentHashMap<>();
     private static MediaPlayer player;
+    private static volatile TextToSpeech tts;
 
     /** Implemented in src/kioku_android.cpp. */
     static native void nativeEvent(String json);
@@ -131,6 +137,9 @@ public class KiokuBridge {
                         & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
             case "density":
                 return activity.getResources().getDisplayMetrics().density;
+            case "tts.voices":
+                // starts the engine, waiting for the UI thread: not from it
+                return ttsVoices();
         }
         // everything else runs on the UI thread without waiting
         ui.post(() -> {
@@ -259,6 +268,14 @@ public class KiokuBridge {
                     player.seekTo(Math.max(0, player.getCurrentPosition() + a.getInt("ms")));
                 }
                 break;
+            case "tts.speak":
+                speak(a.getString("text"), a.getString("voice"), a.getDouble("rate"), a.getInt("id"));
+                break;
+            case "tts.stop":
+                if (tts != null) {
+                    tts.stop();
+                }
+                break;
             default:
                 Log.w(TAG, "unknown call " + method);
         }
@@ -375,6 +392,83 @@ public class KiokuBridge {
             } catch (IllegalStateException ignored) {
             }
             mp.release();
+        }
+    }
+
+    // Text to speech ---------------------------------------------------------
+
+    /** The engine once it has started, or null if it could not start. */
+    private static synchronized TextToSpeech ttsEngine() throws Exception {
+        if (tts == null) {
+            CountDownLatch ready = new CountDownLatch(1);
+            int[] status = {TextToSpeech.ERROR};
+            // onInit() runs on the UI thread; this waits on Qt's
+            TextToSpeech engine = onUiThread(() -> new TextToSpeech(activity, s -> {
+                status[0] = s;
+                ready.countDown();
+            }));
+            if (!ready.await(10, TimeUnit.SECONDS) || status[0] != TextToSpeech.SUCCESS) {
+                Log.w(TAG, "text to speech is not available");
+                engine.shutdown();
+                return null;
+            }
+            engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override
+                public void onStart(String id) {
+                }
+
+                @Override
+                public void onDone(String id) {
+                    event(obj("type", "ttsDone", "id", Integer.parseInt(id)));
+                }
+
+                @Override
+                public void onError(String id) {
+                    onDone(id);
+                }
+
+                @Override
+                public void onStop(String id, boolean interrupted) {
+                    onDone(id);
+                }
+            });
+            tts = engine;
+        }
+        return tts;
+    }
+
+    private static JSONArray ttsVoices() throws Exception {
+        JSONArray voices = new JSONArray();
+        TextToSpeech engine = ttsEngine();
+        if (engine == null || engine.getVoices() == null) {
+            return voices;
+        }
+        for (Voice v : engine.getVoices()) {
+            if (!v.getFeatures().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)) {
+                voices.put(obj("name", v.getName(), "lang", v.getLocale().toLanguageTag(),
+                        "network", v.isNetworkConnectionRequired()));
+            }
+        }
+        return voices;
+    }
+
+    /** On the UI thread; the engine was started by tts.voices (Anki asks for
+     * the voices before it picks a player). */
+    private static void speak(String text, String voice, double rate, int id) {
+        TextToSpeech engine = tts;
+        if (engine == null) {
+            event(obj("type", "ttsDone", "id", id));
+            return;
+        }
+        for (Voice v : engine.getVoices()) {
+            if (v.getName().equals(voice)) {
+                engine.setVoice(v);
+                break;
+            }
+        }
+        engine.setSpeechRate((float) rate);
+        if (engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, String.valueOf(id)) != TextToSpeech.SUCCESS) {
+            event(obj("type", "ttsDone", "id", id));
         }
     }
 

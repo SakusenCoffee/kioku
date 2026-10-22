@@ -26,6 +26,7 @@ __all__ = [
     "pick_files",
     "save_path",
     "screenshot",
+    "tts_player",
 ]
 
 HOME = os.path.expanduser("~")
@@ -82,6 +83,12 @@ def audio_player(taskman: Any, media_folder: str) -> Any:
     from .audio import AVFoundationPlayer
 
     return AVFoundationPlayer(taskman, media_folder)
+
+
+def tts_player(taskman: Any) -> Any:
+    from .tts import AVSpeechPlayer
+
+    return AVSpeechPlayer()
 
 
 def _app() -> Any:

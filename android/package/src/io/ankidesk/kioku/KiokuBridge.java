@@ -24,6 +24,7 @@ import android.speech.tts.Voice;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Toast;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
@@ -63,6 +64,8 @@ import java.util.concurrent.TimeUnit;
  *
  *   call(method, json args) -> String     from Python (Qt's thread)
  *   nativeEvent(json)                     to Python, delivered on Qt's thread
+ *   nativeRequest(json, ms) -> String     to Python, waiting up to ms for the
+ *                                         answer (null without one)
  *
  * Web views stand in for Qt WebEngine; file picking copies the chosen files
  * into the app (Python cannot open content:// URIs); MediaPlayer plays card
@@ -80,12 +83,22 @@ public class KiokuBridge {
 
     /** Implemented in src/kioku_android.cpp. */
     static native void nativeEvent(String json);
+    static native String nativeRequest(String json, int timeoutMs);
 
     private static void event(JSONObject json) {
         try {
             nativeEvent(json.toString());
         } catch (UnsatisfiedLinkError e) {
             Log.w(TAG, "event before the native side was ready: " + json);
+        }
+    }
+
+    /** Python's answer, or null if none came within timeoutMs. */
+    private static String request(JSONObject json, int timeoutMs) {
+        try {
+            return nativeRequest(json.toString(), timeoutMs);
+        } catch (UnsatisfiedLinkError e) {
+            return null;
         }
     }
 
@@ -150,6 +163,9 @@ public class KiokuBridge {
                 return allFilesAccess();
             case "apps.versions":
                 return appVersions(a.getJSONArray("packages"));
+            case "lifecycle.watch":
+                watchLifecycle = a.getBoolean("on");
+                return true;
         }
         // everything else runs on the UI thread without waiting
         ui.post(() -> {
@@ -458,6 +474,56 @@ public class KiokuBridge {
     /** The notification's Stop action. */
     static void syncServerStopRequested() {
         event(obj("type", "syncServiceStop"));
+    }
+
+    // Going to the background (a profile on AnkiDroid's collection) -------
+
+    private static volatile boolean watchLifecycle;
+    // AnkiDroid's activity resumes only after Kioku's onPause returns, but
+    // its onStop comes later; past this, Android resumes it anyway
+    private static final int PAUSE_WAIT_MS = 400;
+    // after onStop Qt's event loop no longer runs until Kioku is back
+    private static final int STOP_WAIT_MS = 1500;
+
+    /** From KiokuActivity, before Qt hears of the change. On pause and stop,
+     * waits for Python to close AnkiDroid's collection; on resume (and the
+     * activity and permission results that come just before it) asks Python
+     * to reopen it, ahead of anything else that reaches Python. */
+    static void lifecycle(String state) {
+        if (!watchLifecycle) {
+            return;
+        }
+        if (state.equals("resume")) {
+            event(obj("type", "foreground"));
+            return;
+        }
+        int waitMs = state.equals("pause") ? PAUSE_WAIT_MS : STOP_WAIT_MS;
+        long deadline = System.currentTimeMillis() + waitMs;
+        String answer = null;
+        long start = System.currentTimeMillis();
+        while (true) {
+            long left = deadline - System.currentTimeMillis();
+            if (left <= 0) {
+                break;
+            }
+            answer = request(obj("type", "background", "state", state), (int) left);
+            // "busy": an operation is finishing; Qt's thread gets to handle
+            // its completion between two requests
+            if (answer == null || !answer.equals("busy")) {
+                break;
+            }
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        Log.i(TAG, "background " + state + ": " + answer + " in "
+                + (System.currentTimeMillis() - start) + " ms");
+        if (state.equals("stop") && !"closed".equals(answer) && !"none".equals(answer)) {
+            Toast.makeText(activity, "Kioku is still busy with AnkiDroid's collection, so AnkiDroid "
+                    + "can't open it until you go back to Kioku.", Toast.LENGTH_LONG).show();
+        }
     }
 
     // Audio ------------------------------------------------------------------

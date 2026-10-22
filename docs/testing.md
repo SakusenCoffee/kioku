@@ -345,4 +345,39 @@ Android emulator (API 37, arm64) with AnkiDroid 2.25.3 (GitHub "full" build,
 Not done yet: Samsung M30s (Android 11's storage), Tailscale and "All
 networks" from another machine, iOS after a long time in the background.
 "AnkiDroid's collection" (opening AnkiDroid's own collection) is written and
-partly tested but not offered yet; see HANDOFF.md.
+tested below but not offered: Anki's backups drop the collection's lock.
+
+## AnkiDroid's collection (2026-10-23)
+
+A profile that opens AnkiDroid's own `collection.anki2` (`ankidroid.FOLDER`),
+still hidden (`FOLDER_READY = False`). Fixes:
+[fixes.md](fixes.md#sync-server-and-ankidroids-folder-preferences--advanced).
+
+Host tests: 56 passing, 8 new ones: the background watch only for this mode,
+close and reopen with AnkiDroid's changes (screens refreshed) and without
+(left alone), a busy collection kept open, reopening while another process
+holds it (retry, then success once released), operations started while
+closed waiting for the reopen, and Anki's backup dropping the lock.
+
+Emulator (API 37) with AnkiDroid 2.25.3 full, profile **DroidFolder**:
+
+| Test | Result |
+| --- | --- |
+| AnkiDroid started over Kioku (`monkey`, the launcher's intent): AnkiDroid resumes before Kioku's onStop | ✅ Kioku closed it in onPause in 3–60 ms, before AnkiDroid's DeckPicker; no "Database Locked" (14 times) |
+| Back to Kioku after AnkiDroid answered a card, AnkiDroid force-stopped in between | ✅ reopened, AnkiDroid's review there, screens refreshed |
+| Back to Kioku while AnkiDroid still has it | ✅ retry dialog (8 of 8 trials); stays locked after 60 s; Try again after a force stop reopens it; all 14 answers in the revlog |
+| Retry dialog → AnkiDroid app info… → Force stop → back to Kioku | ✅ after a fix (it crashed: see fixes) |
+| Tools › Switch to AnkiDroid | ✅ closed first, AnkiDroid opened it |
+| AnkiDroid answering cards while its lock was gone | ❌ **lost**: two answers never reached the file. Cause: Anki's backup (see below) |
+
+Anki's backup reads `collection.anki2` through a second file descriptor
+while SQLite has it open (rslib `maybe_backup` → `read_locked_db_file`), and
+closing it drops the process's POSIX locks on the file, SQLite's exclusive
+lock too. Confirmed on macOS (`test_anki_backup_drops_the_lock`): a second
+process is locked out before `create_backup`, opens it after. AnkiDroid's
+core does this on its automatic backups, so Kioku could open the collection
+while AnkiDroid kept it open, and Kioku's close then deleted the `-wal` file
+AnkiDroid was still writing to. Kioku can't detect it, so the mode stays
+hidden until Anki's core (Kioku's and AnkiDroid's) keeps the lock.
+
+Not done: big collection timings, Samsung M30s, device reboots.

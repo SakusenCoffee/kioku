@@ -5,7 +5,7 @@ KiokuBridge.java."""
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Callable
 
 from .files import pick_files, save_path
 from .webview import WebView
@@ -176,6 +176,30 @@ def launch_ankidroid() -> None:
     if not installed:
         raise RuntimeError("AnkiDroid isn't installed")
     bridge.call("apps.launch", package=next(p for p in PACKAGES if p in installed))
+
+
+def watch_background(
+    on_background: Callable[[str], str] | None, on_foreground: Callable[[], None] | None
+) -> None:
+    """While set, Kioku's activity waits in onPause and onStop (Android's UI
+    thread, briefly) for on_background("pause" or "stop") to return
+    "closed", "none" or "busy" (asked again until time runs out), and
+    on_foreground() runs on resume before any other event. None stops it."""
+    from . import bridge
+
+    if on_background is None or on_foreground is None:
+        bridge.call("lifecycle.watch", on=False)
+        return
+    bridge.answer("background", lambda request: on_background(request["state"]))
+    _foreground[:] = [on_foreground]
+    if not _foreground_listening:
+        _foreground_listening.append(True)
+        bridge.listen("foreground", lambda _event: [f() for f in _foreground])
+    bridge.call("lifecycle.watch", on=True)
+
+
+_foreground: list[Callable[[], None]] = []
+_foreground_listening: list[bool] = []
 
 
 def sync_server_running(running: bool, text: str) -> None:

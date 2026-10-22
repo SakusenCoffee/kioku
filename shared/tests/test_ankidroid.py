@@ -288,10 +288,27 @@ class FakeMW:
         self.backend = RustBackend()
         self.col = None
         self.messages: list = []
-        self.progress = type("P", (), {"single_shot": lambda _s, ms, fn, _r: self.messages.append(fn)})()
+        self.busy = 0
+        self.resets = 0
+        self.progress = type(
+            "P",
+            (),
+            {
+                "single_shot": lambda _s, ms, fn, _r: self.messages.append(fn),
+                "busy": lambda _s: self.busy,
+            },
+        )()
+        self.media_syncer = type("M", (), {"is_syncing": lambda _s: False})()
+        self._background_op_count = 0
 
     def setEnabled(self, on: bool) -> None:
         pass
+
+    def update_undo_actions(self) -> None:
+        pass
+
+    def reset(self) -> None:
+        self.resets += 1
 
 
 @pytest.fixture
@@ -315,6 +332,11 @@ def load_collection(monkeypatch, media_paths_patched):
 
     monkeypatch.setattr(mediacheck.MediaChecker, "_on_trash_files", mediacheck.MediaChecker._on_trash_files)
     monkeypatch.setattr(importing.ColpkgImporter, "do_import", importing.ColpkgImporter.do_import)
+    monkeypatch.setattr(aqt.main.AnkiQt, "_unloadCollection", aqt.main.AnkiQt._unloadCollection)
+    from aqt.operations import CollectionOp, QueryOp
+
+    monkeypatch.setattr(CollectionOp, "run_in_background", CollectionOp.run_in_background)
+    monkeypatch.setattr(QueryOp, "run_in_background", QueryOp.run_in_background)
     from aqt import gui_hooks
 
     hooks_before = list(gui_hooks.main_window_did_init._hooks)
@@ -390,3 +412,161 @@ def test_profile_with_media_mode(droid, tmp_path, load_collection) -> None:
     finally:
         mw.col.close()
     time.sleep(0)
+
+
+# Going to the background and back (FOLDER)
+######################################################################
+
+
+@pytest.fixture
+def folder_mw(droid, tmp_path, load_collection, platform, monkeypatch):
+    """A profile on AnkiDroid's collection, open; the retry dialog recorded."""
+    retries: list = []
+    monkeypatch.setattr(ankidroid, "_show_retry", lambda mw, err: retries.append(err))
+    monkeypatch.setattr(ankidroid, "_close_retry", lambda: None)
+    # what runs once Qt has seen the app active runs later, as on a phone
+    later: list = []
+    monkeypatch.setattr(ankidroid, "_when_active", later.append)
+    mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
+    mw.retries = retries
+    load_collection(mw)
+    _, on_foreground = platform.watching
+
+    def foreground() -> None:
+        on_foreground()
+        while later:
+            later.pop(0)()
+
+    mw.foreground = foreground
+    yield mw
+    col = ankidroid._held[0] or mw.col
+    ankidroid._held[0] = None
+    ankidroid._deferred.clear()
+    if col is not None and col.db is not None:
+        col.close()
+
+
+def test_watches_background_only_for_folder(droid, tmp_path, load_collection, platform) -> None:
+    mw = make_mw(tmp_path, ankidroid.Source(mode=ankidroid.FOLDER, folder=str(droid)))
+    load_collection(mw)
+    assert platform.watching is not None
+    mw.col.close()
+    ankidroid.store(mw.pm.profile, ankidroid.Source(mode=ankidroid.MEDIA, folder=str(droid)))
+    load_collection(mw)
+    assert platform.watching is None
+    mw.col.close()
+
+
+def test_background_closes_and_foreground_reopens(folder_mw, droid, platform) -> None:
+    mw = folder_mw
+    on_background, _ = platform.watching
+    add_note(mw.col, "made in Kioku")
+    col = mw.col
+
+    assert on_background("pause") == "closed"
+    assert mw.col is None and ankidroid.is_closed()
+    # onStop asks again
+    assert on_background("stop") == "closed"
+
+    # AnkiDroid opens it, sees Kioku's note and adds its own
+    other = Collection(str(droid / "collection.anki2"))
+    assert "made in Kioku" in fronts(other)
+    add_note(other, "added while Kioku was away")
+    other.close()
+
+    mw.foreground()
+    assert mw.col is col and not ankidroid.is_closed()
+    assert "added while Kioku was away" in fronts(mw.col)
+    # AnkiDroid changed it: every screen refreshed
+    assert mw.resets == 1
+    assert not mw.retries
+
+
+def test_foreground_without_changes_keeps_screens(folder_mw, platform) -> None:
+    mw = folder_mw
+    on_background, _ = platform.watching
+    assert on_background("pause") == "closed"
+    mw.foreground()
+    assert mw.col is not None and mw.resets == 0
+    # a second resume (activity result, then onResume) does nothing
+    mw.foreground()
+    assert mw.resets == 0
+
+
+def test_busy_collection_stays_open(folder_mw, platform) -> None:
+    mw = folder_mw
+    on_background, _ = platform.watching
+    mw._background_op_count = 1
+    assert on_background("pause") == "busy"
+    assert mw.col is not None and mw.col.db is not None
+    mw._background_op_count = 0
+    mw.busy = 1
+    assert on_background("stop") == "busy"
+    mw.busy = 0
+    assert on_background("stop") == "closed"
+
+
+def test_nothing_to_close() -> None:
+    mw = type("MW", (), {"col": None, "pm": type("PM", (), {"profile": {}})()})()
+    assert ankidroid.close_for_ankidroid(mw) == "none"
+
+
+def test_reopen_while_ankidroid_has_it(folder_mw, droid, platform) -> None:
+    mw = folder_mw
+    on_background, _ = platform.watching
+    assert on_background("stop") == "closed"
+    proc = hold(str(droid / "collection.anki2"))
+    try:
+        mw.foreground()
+        assert mw.col is None and ankidroid.is_closed()
+        assert len(mw.retries) == 1
+        assert ankidroid.explain(mw.retries[0]) == ankidroid.LOCKED_HELP
+        # back from Android's settings without force-stopping it
+        mw.foreground()
+        assert len(mw.retries) == 2 and mw.col is None
+    finally:
+        release(proc)
+    mw.foreground()
+    assert mw.col is not None and fronts(mw.col) == {"made in AnkiDroid"}
+
+
+def test_operations_wait_while_closed(folder_mw, platform) -> None:
+    from aqt.operations import CollectionOp, QueryOp
+
+    mw = folder_mw
+    on_background, _ = platform.watching
+    assert on_background("pause") == "closed"
+    # the editor saving a field as Kioku goes to the background
+    CollectionOp(parent=None, op=lambda col: col.add_note).run_in_background()
+    QueryOp(parent=None, op=lambda col: None, success=lambda _: None).run_in_background()
+    assert len(ankidroid._deferred) == 2
+    ran: list = []
+    ankidroid._deferred[:] = [lambda: ran.append(mw.col is not None)]
+    mw.foreground()
+    assert ran == [True] and not ankidroid._deferred
+
+
+def test_anki_backup_drops_the_lock(droid, tmp_path) -> None:
+    """Why FOLDER is not offered: Anki's backup reads collection.anki2
+    through a second file descriptor (rslib's read_locked_db_file) while
+    SQLite has it open, and closing that descriptor drops the process's
+    POSIX locks on the file, SQLite's exclusive lock included. AnkiDroid's
+    core does the same, so after one of its backups Kioku can open the
+    collection while AnkiDroid still has it open. If this test fails, Anki
+    fixed it: check AnkiDroid's core and revisit FOLDER_READY."""
+    path = str(droid / "collection.anki2")
+    col = Collection(path)
+    try:
+        add_note(col, "changed since the last backup")
+        with pytest.raises(subprocess.CalledProcessError):
+            subprocess.run(
+                [sys.executable, "-c", HOLDER, path], input="\n", capture_output=True,
+                text=True, check=True, timeout=60,
+            )
+        backups = tmp_path / "backups"
+        backups.mkdir()
+        col.create_backup(backup_folder=str(backups), force=True, wait_for_completion=True)
+        # a second process now opens it although this one still has it open
+        release(hold(path))
+    finally:
+        col.close()

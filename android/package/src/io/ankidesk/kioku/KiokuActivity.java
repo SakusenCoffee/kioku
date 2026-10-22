@@ -112,8 +112,29 @@ public class KiokuActivity extends QtActivity {
         }
     }
 
+    // KiokuBridge.lifecycle: a profile on AnkiDroid's collection closes it
+    // in the background
+    @Override
+    protected void onPause() {
+        KiokuBridge.lifecycle("pause");
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        KiokuBridge.lifecycle("stop");
+        super.onStop();
+    }
+
+    @Override
+    protected void onResume() {
+        KiokuBridge.lifecycle("resume");
+        super.onResume();
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        KiokuBridge.lifecycle("resume");
         if (!KiokuBridge.onRequestPermissionsResult(requestCode, grantResults)) {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
@@ -121,6 +142,7 @@ public class KiokuActivity extends QtActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        KiokuBridge.lifecycle("resume");
         if (!KiokuBridge.onActivityResult(requestCode, resultCode, data)) {
             super.onActivityResult(requestCode, resultCode, data);
         }

@@ -32,8 +32,8 @@ OFF = "off"
 MEDIA = "media"
 FOLDER = "folder"
 MODES = (OFF, MEDIA, FOLDER)
-# FOLDER is not offered in Preferences yet: switching apps still races
-# AnkiDroid for the lock (see HANDOFF.md)
+# FOLDER is not offered in Preferences: Anki's backups drop the collection's
+# lock, so both apps could have it open (test_anki_backup_drops_the_lock)
 FOLDER_READY = False
 
 PROFILE_KEY = "kioku_ankidroid"
@@ -230,6 +230,7 @@ def install() -> None:
 
     def load_collection(self) -> None:  # type: ignore[no-untyped-def]
         source = current(self)
+        _watch_background(self, False)
         if source.mode == OFF:
             set_override("", None, None)
             return original_load(self)
@@ -237,6 +238,8 @@ def install() -> None:
             if found := problems(source):
                 raise Exception("\n".join(found))
             _open(self, source)
+            if source.mode == FOLDER:
+                _watch_background(self, True)
         except Exception as err:
             # never leave the profile unusable: fall back to Kioku's own
             # collection and say why
@@ -256,9 +259,17 @@ def install() -> None:
 
     aqt.main.AnkiQt._loadCollection = load_collection
 
+    original_unload = aqt.main.AnkiQt._unloadCollection
+
+    def unload_collection(self) -> None:  # type: ignore[no-untyped-def]
+        _watch_background(self, False)
+        original_unload(self)
+
+    aqt.main.AnkiQt._unloadCollection = unload_collection
+
     _patch_media_check()
     _patch_colpkg_import()
-    _install_background_close()
+    _defer_while_closed()
     gui_hooks.main_window_did_init.append(lambda: _add_menu_action(aqt.mw))
 
 
@@ -323,89 +334,212 @@ def _patch_colpkg_import() -> None:
 
 # Closing while in the background (FOLDER)
 ######################################################################
+#
+# Android resumes AnkiDroid only after Kioku's onPause has returned, but
+# Kioku's onStop comes later, and after it Qt's event loop doesn't run until
+# Kioku is back. So Kioku's activity waits in onPause (and again in onStop,
+# if an operation was still running) for close_for_ankidroid(), and asks for
+# reopen_after_ankidroid() on resume, ahead of the activity results and
+# input that come with it (kioku_platform.watch_background).
+#
+# While closed, mw.col is None, so Anki's timers skip, and the Collection
+# waits in _held; operations started meanwhile (an editor saving a field as
+# it loses focus) wait in _deferred and run once it's open again.
 
-_closed_in_background = [False]
+_held: list = [None]
+_deferred: list = []
+_mod_before_close = [0]
 
 
-def close_for_ankidroid(mw) -> bool:  # type: ignore[no-untyped-def]
-    """Closes the collection so AnkiDroid can open it. Returns False if
-    something is still using it."""
-    if mw.col is None or mw.col.db is None:
-        return mw.col is not None
-    if mw.progress.busy() or mw.media_syncer.is_syncing():
-        return False
-    mw.col.close_for_full_sync()
+def is_closed() -> bool:
+    return _held[0] is not None
+
+
+def busy(mw) -> bool:  # type: ignore[no-untyped-def]
+    return bool(
+        mw.progress.busy()
+        or getattr(mw, "_background_op_count", 0)
+        or mw.media_syncer.is_syncing()
+    )
+
+
+def close_for_ankidroid(mw) -> str:  # type: ignore[no-untyped-def]
+    """Closes the collection so AnkiDroid can open it: "closed", "busy"
+    (an operation still uses it) or "none" (nothing to close)."""
+    if is_closed():
+        return "closed"
+    if mw.col is None or current(mw).mode != FOLDER:
+        return "none"
+    # busy first: a full sync has the collection's db closed meanwhile
+    if busy(mw):
+        return "busy"
+    if mw.col.db is None:
+        return "none"
+    col = mw.col
+    _mod_before_close[0] = col.mod
+    col.close_for_full_sync()
     mw.backend.close_collection(downgrade_to_schema11=False)
-    _closed_in_background[0] = True
+    _held[0] = col
+    mw.col = None
     logger.info("closed AnkiDroid's collection")
+    return "closed"
+
+
+def reopen_after_ankidroid(mw) -> bool:  # type: ignore[no-untyped-def]
+    """Opens the collection again (if closed); on failure, offers to retry."""
+    col = _held[0]
+    if col is None:
+        return True
+    try:
+        col.reopen()
+    except Exception as err:
+        logger.warning("reopening AnkiDroid's collection failed: %s", err)
+        _when_active(lambda error=err: _show_retry(mw, error))
+        return False
+    _held[0] = None
+    mw.col = col
+    logger.info("reopened AnkiDroid's collection")
+    changed = col.mod != _mod_before_close[0]
+    waiting = _deferred[:]
+    _deferred.clear()
+
+    def refresh() -> None:
+        from aqt import gui_hooks
+
+        _close_retry()
+        gui_hooks.collection_did_temporarily_close(col)
+        # closing dropped the undo queue
+        mw.update_undo_actions()
+        if changed:
+            # AnkiDroid changed it: refresh every screen
+            mw.reset()
+        for run in waiting:
+            run()
+
+    _when_active(refresh)
     return True
 
 
-def reopen_after_ankidroid(mw) -> None:  # type: ignore[no-untyped-def]
-    if not _closed_in_background[0] or mw.col is None:
-        return
-    try:
-        mw.reopen()
-    except Exception as err:
-        logger.warning("reopening AnkiDroid's collection failed: %s", err)
-        _ask_retry(mw, err)
-        return
-    _closed_in_background[0] = False
-    mw.setEnabled(True)
-    logger.info("reopened AnkiDroid's collection")
-    mw.reset()
-
-
-def _ask_retry(mw, err: Exception) -> None:  # type: ignore[no-untyped-def]
-    from aqt.qt import QMessageBox
-
-    mw.setEnabled(False)
-    box = QMessageBox(mw)
-    box.setIcon(QMessageBox.Icon.Warning)
-    box.setText(
-        f"Kioku can't open AnkiDroid's collection again.\n\n{explain(err)}"
-    )
-    retry = box.addButton("Try again", QMessageBox.ButtonRole.AcceptRole)
-    box.addButton("Quit Kioku", QMessageBox.ButtonRole.RejectRole)
-    box.exec()
-    if box.clickedButton() is retry:
-        reopen_after_ankidroid(mw)
-    else:
-        # the collection is closed and saved; nothing else to write
-        mw.pm.save()
-        os._exit(0)
-
-
-def _install_background_close() -> None:
-    import aqt
+def _when_active(run) -> None:  # type: ignore[no-untyped-def]
+    """Runs `run` once Qt has seen the app become active. On resume, Kioku
+    reopens the collection before Qt hears of it; showing or hiding a window
+    then makes Qt paint without a surface (SIGSEGV in eglSwapBuffers)."""
     from aqt.qt import QGuiApplication, Qt, QTimer
 
-    background = (Qt.ApplicationState.ApplicationSuspended, Qt.ApplicationState.ApplicationHidden)
-
-    def close_when_idle(mw) -> None:  # type: ignore[no-untyped-def]
-        # a sync or another operation may still run: try again until done
-        # or the app is back
-        if QGuiApplication.applicationState() not in background:
-            return
-        if not close_for_ankidroid(mw):
-            QTimer.singleShot(2000, lambda: close_when_idle(mw))
+    app = QGuiApplication.instance()
+    if app is None or app.applicationState() == Qt.ApplicationState.ApplicationActive:
+        if app is None:
+            run()
+        else:
+            QTimer.singleShot(0, run)
+        return
 
     def on_state(state: Qt.ApplicationState) -> None:
-        mw = aqt.mw
-        if mw is None or current(mw).mode != FOLDER:
-            return
         if state == Qt.ApplicationState.ApplicationActive:
-            QTimer.singleShot(0, lambda: reopen_after_ankidroid(mw))
-        elif state in background:
-            close_when_idle(mw)
+            app.applicationStateChanged.disconnect(on_state)
+            QTimer.singleShot(0, run)
 
-    original_init = aqt.AnkiApp.__init__
+    app.applicationStateChanged.connect(on_state)
 
-    def init(self, argv):  # type: ignore[no-untyped-def]
-        original_init(self, argv)
-        self.applicationStateChanged.connect(on_state)
 
-    aqt.AnkiApp.__init__ = init
+def _defer_while_closed() -> None:
+    """Operations started while the collection is closed run after reopening."""
+    from aqt.operations import CollectionOp, QueryOp
+
+    collection_op = CollectionOp.run_in_background
+
+    def run_collection_op(self, *, initiator: object | None = None) -> None:  # type: ignore[no-untyped-def]
+        if is_closed():
+            _deferred.append(lambda: collection_op(self, initiator=initiator))
+            return
+        collection_op(self, initiator=initiator)
+
+    CollectionOp.run_in_background = run_collection_op
+
+    query_op = QueryOp.run_in_background
+
+    def run_query_op(self) -> None:  # type: ignore[no-untyped-def]
+        if is_closed():
+            _deferred.append(lambda: query_op(self))
+            return
+        query_op(self)
+
+    QueryOp.run_in_background = run_query_op
+
+
+# the retry dialog, while AnkiDroid keeps the collection
+_retry: list = [None]
+
+
+def _show_retry(mw, err: Exception) -> None:  # type: ignore[no-untyped-def]
+    """Not modal in the event loop sense (no exec()): Kioku coming back from
+    Android's settings retries by itself, and a second failure only updates
+    the text."""
+    from aqt.qt import QDialog, QDialogButtonBox, QLabel, Qt, QVBoxLayout, qconnect
+
+    text = f"Kioku can't open AnkiDroid's collection again.\n\n{explain(err)}"
+    if _retry[0] is not None:
+        _retry[0].findChild(QLabel).setText(text)
+        return
+
+    class RetryDialog(QDialog):
+        # only its buttons close it (Back, Escape)
+        def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+            event.ignore()
+
+        def reject(self) -> None:
+            pass
+
+    dialog = RetryDialog(mw)
+    dialog.setWindowTitle("AnkiDroid's collection")
+    dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+    layout = QVBoxLayout(dialog)
+    label = QLabel(text)
+    label.setWordWrap(True)
+    layout.addWidget(label)
+    # a button box: kioku.windows shows the dialog as a card, without a
+    # title bar and its Back button
+    buttons = QDialogButtonBox(Qt.Orientation.Vertical)
+    layout.addWidget(buttons)
+    role = QDialogButtonBox.ButtonRole.ActionRole
+    qconnect(buttons.addButton("Try again", role).clicked, lambda: reopen_after_ankidroid(mw))
+    qconnect(buttons.addButton("AnkiDroid app info…", role).clicked, _open_ankidroid_info)
+    qconnect(buttons.addButton("Quit Kioku", role).clicked, lambda: _quit(mw))
+    _retry[0] = dialog
+    dialog.show()
+
+
+def _close_retry() -> None:
+    dialog, _retry[0] = _retry[0], None
+    if dialog is not None:
+        dialog.hide()
+        dialog.deleteLater()
+
+
+def _open_ankidroid_info() -> None:
+    import kioku_platform as platform
+
+    installed = platform.app_versions(list(PACKAGES))
+    package = next((p for p in PACKAGES if p in installed), PACKAGES[0])
+    platform.open_app_details(package)
+
+
+def _quit(mw) -> None:  # type: ignore[no-untyped-def]
+    # the collection is closed and saved; nothing else to write
+    mw.pm.save()
+    os._exit(0)
+
+
+def _watch_background(mw, on: bool) -> None:  # type: ignore[no-untyped-def]
+    import kioku_platform as platform
+
+    watch = getattr(platform, "watch_background", None)
+    if watch is None:
+        return
+    if on:
+        watch(lambda _state: close_for_ankidroid(mw), lambda: reopen_after_ankidroid(mw))
+    else:
+        watch(None, None)
 
 
 def _add_menu_action(mw) -> None:  # type: ignore[no-untyped-def]
@@ -418,13 +552,13 @@ def _add_menu_action(mw) -> None:  # type: ignore[no-untyped-def]
     def switch() -> None:
         import kioku_platform as platform
 
-        if not close_for_ankidroid(mw):
+        if close_for_ankidroid(mw) == "busy":
             _warn("Kioku is still busy with the collection; try again in a moment.")
             return
-        mw.setEnabled(False)
         try:
             platform.launch_ankidroid()
         except Exception as err:
+            reopen_after_ankidroid(mw)
             _warn(f"Couldn't start AnkiDroid: {err}")
 
     qconnect(action.triggered, switch)

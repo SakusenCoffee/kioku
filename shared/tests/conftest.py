@@ -22,6 +22,7 @@ class FakePlatform(types.ModuleType):
         super().__init__("kioku_platform")
         self.root = ""
         self.service_calls: list[tuple[bool, str]] = []
+        self.watching: tuple | None = None
 
     def config_dir(self) -> str:
         return os.path.join(self.root, "config")
@@ -44,6 +45,9 @@ class FakePlatform(types.ModuleType):
     def app_versions(self, packages: list[str]) -> dict[str, str]:
         return {p: v for p, v in self.versions.items() if p in packages}
 
+    def watch_background(self, on_background, on_foreground) -> None:  # type: ignore[no-untyped-def]
+        self.watching = (on_background, on_foreground) if on_background else None
+
 
 _platform = FakePlatform()
 sys.modules["kioku_platform"] = _platform
@@ -55,6 +59,7 @@ def platform(tmp_path):
     _platform.service_calls.clear()
     _platform.files_access = True
     _platform.versions = {}
+    _platform.watching = None
     yield _platform
     from kioku import syncserver
 

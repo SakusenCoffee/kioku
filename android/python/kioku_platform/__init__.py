@@ -12,6 +12,8 @@ from .webview import WebView
 
 __all__ = [
     "WebView",
+    "all_files_access",
+    "app_versions",
     "audio_player",
     "cache_dir",
     "config_dir",
@@ -19,12 +21,16 @@ __all__ = [
     "dev_allowed",
     "documents_dir",
     "keep_awake",
+    "launch_ankidroid",
     "move_to_back",
+    "open_app_details",
     "open_folder",
     "pick_files",
     "prepare",
+    "request_all_files_access",
     "save_path",
     "screenshot",
+    "sync_server_running",
     "tts_player",
 ]
 
@@ -132,6 +138,67 @@ def move_to_back() -> None:
     from . import bridge
 
     bridge.call("moveTaskToBack")
+
+
+def all_files_access() -> bool:
+    from . import bridge
+
+    return bool(bridge.call("storage.allFiles"))
+
+
+def request_all_files_access() -> None:
+    """Opens Android's All files access screen for Kioku (Android 9/10: the
+    storage permission prompt)."""
+    from . import bridge
+
+    bridge.call("storage.requestAllFiles")
+
+
+def app_versions(packages: list[str]) -> dict[str, str]:
+    """{package: versionName} of the installed ones."""
+    from . import bridge
+
+    return dict(bridge.call("apps.versions", packages=list(packages)))
+
+
+def open_app_details(package: str) -> None:
+    from . import bridge
+
+    bridge.call("apps.details", package=package)
+
+
+def launch_ankidroid() -> None:
+    from kioku.ankidroid import PACKAGES
+
+    from . import bridge
+
+    installed = app_versions(list(PACKAGES))
+    if not installed:
+        raise RuntimeError("AnkiDroid isn't installed")
+    bridge.call("apps.launch", package=next(p for p in PACKAGES if p in installed))
+
+
+def sync_server_running(running: bool, text: str) -> None:
+    """A foreground service (with its notification) keeps the process, and
+    with it the sync server, alive while Kioku is in the background."""
+    from . import bridge
+
+    if not _sync_stop_listening:
+        _sync_stop_listening.append(True)
+        bridge.listen("syncServiceStop", _on_sync_stop)
+    bridge.call("syncService", running=running, text=text)
+
+
+_sync_stop_listening: list[bool] = []
+
+
+def _on_sync_stop(event: dict) -> None:
+    # the notification's Stop: for this run only, the setting stays on
+    import threading
+
+    from kioku import syncserver
+
+    threading.Thread(target=syncserver.stop, name="syncserver-stop", daemon=True).start()
 
 
 def screenshot(path: str) -> str:

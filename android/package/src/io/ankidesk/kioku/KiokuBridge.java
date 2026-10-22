@@ -1,17 +1,23 @@
 package io.ankidesk.kioku;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
@@ -140,6 +146,10 @@ public class KiokuBridge {
             case "tts.voices":
                 // starts the engine, waiting for the UI thread: not from it
                 return ttsVoices();
+            case "storage.allFiles":
+                return allFilesAccess();
+            case "apps.versions":
+                return appVersions(a.getJSONArray("packages"));
         }
         // everything else runs on the UI thread without waiting
         ui.post(() -> {
@@ -245,6 +255,23 @@ public class KiokuBridge {
             case "moveTaskToBack":
                 activity.moveTaskToBack(true);
                 break;
+            case "syncService":
+                syncService(a.getBoolean("running"), a.optString("text"));
+                break;
+            case "storage.requestAllFiles":
+                requestAllFilesAccess();
+                break;
+            case "apps.details":
+                activity.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + a.getString("package"))));
+                break;
+            case "apps.launch": {
+                Intent launch = activity.getPackageManager().getLaunchIntentForPackage(a.getString("package"));
+                if (launch != null) {
+                    activity.startActivity(launch);
+                }
+                break;
+            }
             case "keepAwake":
                 activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 break;
@@ -350,6 +377,87 @@ public class KiokuBridge {
         } catch (Exception ignored) {
         }
         return "file";
+    }
+
+    // Shared storage (AnkiDroid's folder) ------------------------------------
+
+    private static final int STORAGE_PERMISSION = 0x6b66;
+
+    private static boolean allFilesAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        return activity.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private static void requestAllFilesAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + activity.getPackageName())));
+            } catch (ActivityNotFoundException e) {
+                activity.startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            }
+        } else {
+            activity.requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE}, STORAGE_PERMISSION);
+        }
+    }
+
+    /** {package: versionName} for the installed ones of `packages`. */
+    private static JSONObject appVersions(JSONArray packages) throws JSONException {
+        JSONObject found = new JSONObject();
+        PackageManager pm = activity.getPackageManager();
+        for (int i = 0; i < packages.length(); i++) {
+            String name = packages.getString(i);
+            try {
+                PackageInfo info = pm.getPackageInfo(name, 0);
+                found.put(name, info.versionName != null ? info.versionName : "");
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+        }
+        return found;
+    }
+
+    // Sync server ------------------------------------------------------------
+
+    private static final int NOTIFICATION_PERMISSION = 0x6b6e;
+    private static boolean syncRunning;
+    private static String syncText = "";
+
+    private static void syncService(boolean running, String text) {
+        syncRunning = running;
+        syncText = text;
+        if (running && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            // without it the service still runs, just without its notification
+            activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION);
+        }
+        KiokuSyncService.update(activity, running, text);
+    }
+
+    /** The service posted its notification before the permission was
+     * granted, which hides it: post it again. */
+    static boolean onRequestPermissionsResult(int requestCode, int[] grantResults) {
+        if (requestCode == STORAGE_PERMISSION) {
+            return true;
+        }
+        if (requestCode != NOTIFICATION_PERMISSION) {
+            return false;
+        }
+        if (syncRunning && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            KiokuSyncService.update(activity, true, syncText);
+        }
+        return true;
+    }
+
+    /** The notification's Stop action. */
+    static void syncServerStopRequested() {
+        event(obj("type", "syncServiceStop"));
     }
 
     // Audio ------------------------------------------------------------------

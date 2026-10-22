@@ -105,3 +105,21 @@ Results on iOS with Anki 26.8.1 (October 2026): see [testing.md](testing.md).
 | --- | --- | --- |
 | Some add-ons seemed not to load | one add-on (AnKing Note Types) opens a modal tutorial during start-up; the rest load when it is closed | nothing to fix |
 | AnkiConnect requests time out when made from the main thread | AnkiConnect answers on the main thread | call it from another thread (as real clients do) |
+
+## Sync server and AnkiDroid's folder (Preferences › Advanced)
+
+User guide: [sync-server.md](sync-server.md). Code: `shared/python/kioku/`
+`syncserver.py`, `ankidroid.py`, `advanced.py`; host tests in `shared/tests/`
+(`shared/tests/run.sh`).
+
+| Problem | Cause | Fix |
+| --- | --- | --- |
+| Anki's sync server can't be stopped or restarted inside the app | `syncserver()` in rsbridge runs until Ctrl+C, and only reads its settings once | `shared/patches/anki-syncserver.patch`: `BackgroundServer` (own thread and Tokio runtime, graceful stop with a 5 s limit for stalled clients, then the users' collections close) and `syncserver_start()`/`syncserver_stop()` in rsbridge; applied by both `fetch_deps.sh` |
+| Android stops the process soon after Kioku leaves the screen | – | `KiokuSyncService`, a foreground service of type `specialUse` (no daily time limit, unlike `dataSync` on Android 15) while the server runs; its notification's Stop action stops the server |
+| The service's notification never appeared after allowing notifications | the service posted it before Android 13's notification prompt was answered | `KiokuBridge.onRequestPermissionsResult` posts it again once allowed |
+| "sync status check failed: network error" at start-up; an automatic sync on open would fail too | the server started in the background after the main window had already opened the profile | the server starts before `AnkiQt.__init__` (binding takes milliseconds) |
+| Changing the port before the server was ever on was refused ("password needs 8 characters") | no password yet | a password is made up when the tab opens, saved with the first change |
+| A media folder outside the profile: card pages loaded images from the profile's own folder | `anki.collection` and `anki.media` each import `media_paths_from_col_path` by name; patching one left `col.media.dir()` (served to the web views) at the default | both are patched (`ankidroid.install`) |
+| AnkiDroid's lock error said "Anki already open, or media currently syncing." | rslib's `DbErrorKind::Locked` text | `ankidroid.explain()` turns it into how to close AnkiDroid |
+| `.colpkg` restore would write media into the profile's own folder | `import_collection_package_op` builds the media path itself | turned off for profiles that use AnkiDroid's folder |
+| Check Media could delete AnkiDroid's media | a file unused by this profile may belong to a card AnkiDroid hasn't synced yet | Delete Unused refuses unless allowed in the Advanced tab |

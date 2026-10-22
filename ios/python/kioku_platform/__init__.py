@@ -26,6 +26,7 @@ __all__ = [
     "pick_files",
     "save_path",
     "screenshot",
+    "sync_server_running",
     "tts_player",
 ]
 
@@ -108,6 +109,11 @@ def key_window() -> Any:
     if window is None:
         raise RuntimeError("no window")
     return window
+
+
+def sync_server_running(running: bool, text: str) -> None:
+    # iOS has no way to keep serving in the background
+    pass
 
 
 def screenshot(path: str) -> str:

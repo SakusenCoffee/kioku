@@ -114,6 +114,10 @@ Native variants only:
   stay above the keyboard.
 - **System web view**: debuggable with Safari's Web Inspector (iOS) or
   `chrome://inspect` (Android).
+- **The phone as a sync server** (Preferences › Advanced): AnkiDroid, Kioku's
+  profiles and Anki on your computers sync with the phone instead of AnkiWeb.
+  On Android a profile can also use AnkiDroid's media folder, so large media is
+  stored once. See [docs/sync-server.md](docs/sync-server.md).
 
 Termux variant only:
 
@@ -198,7 +202,10 @@ sideloading.
 | [`android/`](android/) | The native Android variant: CMake/Gradle build, Android web view, Qt patches |
 | [`termux/`](termux/) | The Termux variant: Android app, desktop shell, runtime build ([README](termux/README.md)) |
 | [`shared/`](shared/) | What the native variants share: the Python layer (`shared/python/kioku/`), versions, icon and build tools |
-| [`docs/`](docs/) | [Fixes log](docs/fixes.md), [test results](docs/testing.md), [screenshots](docs/screenshots.md) |
+| [`docs/`](docs/) | [Fixes log](docs/fixes.md), [test results](docs/testing.md), [screenshots](docs/screenshots.md), [sync server and AnkiDroid's media](docs/sync-server.md) |
+
+Host tests for the Python layer (sync server, AnkiDroid's folder, the
+Advanced tab; no device needed): `shared/tests/run.sh`.
 
 Building:
 

@@ -114,14 +114,20 @@ def _get_save_file(parent, title, dir_description, key, ext, fname=""):  # type:
 def _patch_app() -> None:
     import aqt
 
-    from kioku import devtools, mediaserver, windows
+    import sys
 
+    from kioku import advanced, ankidroid, devtools, mediaserver, syncserver, windows
+
+    advanced.install()
+    if sys.platform == "android":
+        ankidroid.install()
     original_init = aqt.AnkiApp.__init__
 
     def init(self, argv):  # type: ignore[no-untyped-def]
         original_init(self, argv)
         windows.install(self)
         mediaserver.install()
+        syncserver.install()
         devtools.install()
 
     aqt.AnkiApp.__init__ = init

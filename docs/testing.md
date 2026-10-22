@@ -287,3 +287,62 @@ kept): iPhone 15 Pro Max (now iOS 27.0.1) and Samsung M30s.
 
 Samsung's TTS engine reports locales as `eng` (no country); the language is
 taken from its voice names (`en-US-SMTf00`).
+
+## Sync server and AnkiDroid's media (2026-10-22)
+
+Guide: [sync-server.md](sync-server.md). Fixes: [fixes.md](fixes.md#sync-server-and-ankidroids-folder-preferences--advanced).
+
+### Host tests (`shared/tests/run.sh`, macOS, Anki 26.8.1 + patched rsbridge)
+
+48 tests, all passing (three runs in a row for the server tests):
+
+- Server: start, stop, restart on the same port, 25 start/stop cycles without
+  leaking threads, port already in use, bad settings, Tailscale not
+  connected, "All networks", the password never left in the environment.
+- Syncing through it with real Anki clients: full upload/download, changes
+  both ways, media both ways, wrong password and unknown user refused, a
+  restart keeps data and logins, a new password needs a new login, Delete
+  server data means a full upload, stopping during a 300-file media upload
+  (stop returns, client doesn't hang, media complete after a restart), three
+  clients syncing at once (Anki's "only one copy can sync" error for some,
+  nothing lost after syncing again).
+- AnkiDroid's folder: media folder override (Python side and backend, kept
+  after a reopen, other collections unaffected, AnkiDroid's
+  `collection.media.db` untouched), both "apps" open with media sync off and
+  nothing uploaded to the server, a second process holding the collection
+  (locked → message, fallback to the profile's own collection, setting turned
+  off and saved), closing for the background and reopening.
+- The Advanced tab (offscreen Qt): off by default, declined warning, first
+  enable makes a password, settings survive a new window, port change
+  restarts, bad values refused, port in use shown in red, Use for this
+  profile (and declining to leave AnkiWeb, and a wrong password), Delete
+  server data; the AnkiDroid group's choices, checks and what it saves on
+  close.
+
+A test helper bug found on the way: notes made in the same millisecond in
+different collections get the same id, which looked like lost changes.
+
+### Devices
+
+Android emulator (API 37, arm64) with AnkiDroid 2.25.3 (GitHub "full" build,
+`/storage/emulated/0/AnkiDroid`); iPhone 15 Pro Max (iOS 27.0.1).
+
+| Test | Android | iPhone |
+| --- | --- | --- |
+| Advanced tab fits the screen | ✅ | ✅ (dark mode) |
+| Turning the server on (tap, warning, Yes) | ✅ | ✅ |
+| Server starts with the app, before the profile's sync check | ✅ (after a fix) | ✅ |
+| Foreground service, notification, Stop action | ✅ type `specialUse`; notification shown again after allowing notifications (after a fix); Stop ends server and service, setting kept | – |
+| Desktop Anki (Mac, through `adb forward`) uploads 20 notes with media; a Kioku profile downloads them through Anki's own sync UI | ✅ | – |
+| Kioku profile adds a note with media and syncs; the desktop gets both | ✅ | – |
+| …while Kioku was in the background for 2.5 minutes | ✅ (process kept as a foreground service) | – |
+| Use for this profile, upload, a second profile downloads | ✅ | ✅ |
+| Server after 60 s in the background (Settings app in front) | – | ✅ still answering |
+| AnkiDroid logs in to `http://127.0.0.1:8080/` and syncs | ✅ | – |
+| AnkiDroid's media: Kioku's note with an image goes into AnkiDroid's folder, AnkiDroid gets the note; AnkiDroid's note reaches Kioku; no media uploaded to the server | ✅ | – |
+| All files access check, AnkiDroid version, folder checks | ✅ | – |
+
+Not done yet: Samsung M30s (Android 11's storage), Tailscale and "All
+networks" from another machine, iOS after a long time in the background.
+"AnkiDroid's collection" (opening AnkiDroid's own collection) is written and
+partly tested but not offered yet; see HANDOFF.md.

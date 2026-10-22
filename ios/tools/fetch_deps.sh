@@ -48,6 +48,13 @@ if [ ! -d anki/rslib ]; then
     rm -rf anki && mv anki.new anki
 fi
 
+# Kioku runs Anki's sync server on a thread it can stop and start again
+# (Preferences > Advanced); the stock one runs until Ctrl+C
+PATCH=$ROOT/../shared/patches/anki-syncserver.patch
+if ! git -C anki apply -R --check "$PATCH" 2> /dev/null; then
+    git -C anki apply "$PATCH"
+fi
+
 sdist() {  # sdist <pypi name> <version> <unpacked dir>
     [ -d "sdist/$3" ] && return
     url=$(curl -fsSL "https://pypi.org/pypi/$1/$2/json" | python3 -c \

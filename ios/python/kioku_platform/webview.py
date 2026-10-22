@@ -43,6 +43,9 @@ NSURL = ObjCClass("NSURL")
 NSMutableURLRequest = ObjCClass("NSMutableURLRequest")
 UIColor = ObjCClass("UIColor")
 NSData = ObjCClass("NSData")
+NSValue = ObjCClass("NSValue")
+UIPrintPageRenderer = ObjCClass("UIPrintPageRenderer")
+UIGraphicsPDFRenderer = ObjCClass("UIGraphicsPDFRenderer")
 
 # WKUserScriptInjectionTime; the same values as kioku.webscripts
 AT_DOCUMENT_START = 0
@@ -50,6 +53,8 @@ AT_DOCUMENT_END = 1
 POLICY_CANCEL = 0
 POLICY_ALLOW = 1
 FLEXIBLE_SIZE = 2 | 16  # UIViewAutoresizingFlexibleWidth | FlexibleHeight
+A4 = (595.2, 841.8)  # points
+PDF_MARGIN = 36.0
 
 CHANNEL_HANDLER = "kiokuChannel"
 CONSOLE_HANDLER = "kiokuConsole"
@@ -351,6 +356,39 @@ class WebView:
         self._pending.add(blk)
         self.webview.evaluateJavaScript_completionHandler_(at(js), blk)
 
+    def print_pdf(self, path: str) -> None:
+        """Write the page to an A4 PDF file; on_pdf_finished() reports the
+        result."""
+        ok = False
+        try:
+            renderer = UIPrintPageRenderer.alloc().init()
+            renderer.addPrintFormatter_startingAtPageAtIndex_(
+                prop(self.webview, "viewPrintFormatter"), 0
+            )
+            paper = CGRect(CGPoint(0, 0), CGSize(*A4))
+            printable = CGRect(
+                CGPoint(PDF_MARGIN, PDF_MARGIN),
+                CGSize(A4[0] - 2 * PDF_MARGIN, A4[1] - 2 * PDF_MARGIN),
+            )
+            # read-only properties, meant to be overridden; KVC sets them
+            renderer.setValue_forKey_(NSValue.valueWithCGRect_(paper), at("paperRect"))
+            renderer.setValue_forKey_(
+                NSValue.valueWithCGRect_(printable), at("printableRect")
+            )
+            pages = int(prop(renderer, "numberOfPages"))
+
+            def draw(context: objc_id) -> None:
+                for i in range(pages):
+                    ObjCInstance(context).beginPage()
+                    renderer.drawPageAtIndex_inRect_(i, paper)
+
+            pdf = UIGraphicsPDFRenderer.alloc().initWithBounds_(paper)
+            data = pdf.PDFDataWithActions_(Block(draw, None, objc_id))
+            ok = bool(data.writeToFile_atomically_(at(path), True))
+        except Exception:
+            logger.exception("print to PDF")
+        self.on_pdf_finished(path, ok)
+
     # Appearance --------------------------------------------------------------
 
     def set_background(self, r: float, g: float, b: float, a: float) -> None:
@@ -396,5 +434,6 @@ class WebView:
     def on_load_started(self) -> None: ...
     def on_load_finished(self, ok: bool) -> None: ...
     def on_alert(self, text: str) -> None: ...
+    def on_pdf_finished(self, path: str, ok: bool) -> None: ...
     def on_confirm(self, text: str) -> bool:
         return False

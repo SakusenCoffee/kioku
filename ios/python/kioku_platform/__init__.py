@@ -21,6 +21,7 @@ __all__ = [
     "dark_mode",
     "documents_dir",
     "keep_awake",
+    "key_window",
     "open_folder",
     "pick_files",
     "save_path",
@@ -91,8 +92,7 @@ def keep_awake() -> None:
     _app().setIdleTimerDisabled_(True)
 
 
-def screenshot(path: str) -> str:
-    """Render the key window, native web views included, to a PNG."""
+def key_window() -> Any:
     window = None
     for scene in prop(prop(_app(), "connectedScenes"), "allObjects"):
         for w in prop(scene, "windows"):
@@ -100,6 +100,12 @@ def screenshot(path: str) -> str:
                 window = w
     if window is None:
         raise RuntimeError("no window")
+    return window
+
+
+def screenshot(path: str) -> str:
+    """Render the key window, native web views included, to a PNG."""
+    window = key_window()
     bounds = prop(window, "bounds")
     renderer = ObjCClass("UIGraphicsImageRenderer").alloc().initWithBounds_(bounds)
 

@@ -5,6 +5,7 @@
 #   the release of that tag (created if needed).
 # - Run it by hand (Actions → Termux APK → Run workflow): builds and keeps the
 #   APK as a workflow artifact; give a tag to publish it to that release too.
+# - Push to main changing termux/ or shared/versions.env: builds only.
 #
 # Signing: add these repository secrets to sign with your own key. Keep the same
 # key for every release, or Android refuses to update an installed Kioku.
@@ -18,6 +19,9 @@ name: Termux APK
 on:
   push:
     tags: ["v*"]
+    # build only (no release) when the termux code or the Anki version changes on main
+    branches: [main]
+    paths: ["termux/**", "shared/versions.env", ".github/workflows/termux.yml"]
   workflow_dispatch:
     inputs:
       tag:

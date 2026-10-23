@@ -29,6 +29,10 @@ running, and iOS 18's WebKit. Update to 0.2.2 or newer.
 A free Apple ID's signature expires after 7 days. Refresh it in AltStore or
 SideStore, or install the `.ipa` again: your data is kept.
 
+From TestFlight: the build expired (90 days after upload). Install the newer
+build in TestFlight, or [ask for the link](mailto:krmanik@outlook.com?subject=Kioku%20TestFlight)
+again if there's none. Your data is kept.
+
 ### AltServer
 
 **"AltServer could not retrieve anisette data value “machineID”"** (newer

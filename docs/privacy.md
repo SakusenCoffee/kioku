@@ -1,6 +1,6 @@
 # Kioku privacy policy
 
-Last updated: 22 October 2026
+Last updated: 23 October 2026
 
 Kioku (the iOS, native Android and Termux apps from
 [github.com/krmanik/kioku](https://github.com/krmanik/kioku)) does not collect,
@@ -29,6 +29,17 @@ Kioku only connects to the internet when you use a feature that needs it:
 - **Kioku's sync server and remote desktop**, only if you turn them on: they
   accept connections from the devices you choose (this phone, your Tailscale
   network or your Wi-Fi). Nothing is sent to the developer.
+
+## TestFlight
+
+If you install Kioku through Apple's TestFlight, Apple handles the beta under
+[its own terms and privacy policy](https://www.apple.com/legal/privacy/). Apple
+then shows the developer what TestFlight collects for every beta app: the
+name and email address you were invited with (if invited by email), your
+device model and iOS version, installs and sessions, crash reports, and any
+feedback or screenshots you send through TestFlight. Kioku itself still sends
+nothing. When you email for the TestFlight link, your email address is used
+only to send it.
 
 ## Children
 

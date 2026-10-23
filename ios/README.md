@@ -42,6 +42,23 @@ PyQt6/sip and other sources into `deps/`), `build_rust.sh`, `gen_pyqt.sh`,
 The unsigned `.ipa` can be installed with a sideloading tool that re-signs
 apps (AltStore, Sideloadly, …).
 
+## TestFlight
+
+Kioku is distributed through TestFlight (link on request), not the App Store.
+
+```sh
+KIOKU_TEAM=<team id> tools/testflight.sh                # build, archive, upload
+KIOKU_TEAM=<team id> tools/testflight.sh --upload-only  # upload the last archive
+uv run --with 'pyjwt[crypto]' python tools/appstore_metadata.py  # texts in appstore/
+```
+
+Needs an App Store Connect API key (`APP_STORE_KEY_ID` and
+`APP_STORE_ISSUER_ID` in `../.env`, `AuthKey_<key id>.p8` at the repo root,
+both gitignored) and either an **Apple Distribution** certificate in the
+keychain or a key with the Admin role (cloud-managed signing). The build
+number is the commit count; it must grow with every upload. Builds expire
+90 days after upload.
+
 ## Developing on a device
 
 ```sh

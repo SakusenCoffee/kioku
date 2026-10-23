@@ -4,8 +4,30 @@
 
 Needs iOS or iPadOS 17 or newer.
 
-Kioku is distributed as an unsigned `.ipa`: you sign it with your own Apple
-ID while installing (sideloading).
+Two ways to get Kioku:
+
+- **TestFlight**, Apple's beta app: no signing, no 7-day refresh. The link is
+  given on request.
+- **Sideloading** the unsigned `.ipa` from GitHub Releases: you sign it with
+  your own Apple ID while installing.
+
+Kioku won't be in the App Store; TestFlight is the only Apple-signed way.
+
+## TestFlight (on request)
+
+1. Email [krmanik@outlook.com](mailto:krmanik@outlook.com?subject=Kioku%20TestFlight)
+   for the TestFlight link.
+2. Install [TestFlight](https://apps.apple.com/app/testflight/id899247664)
+   from the App Store.
+3. Open the link on your iPhone or iPad and tap **Accept**, then **Install**.
+
+New builds show up in TestFlight; turn on **Automatic Updates** there.
+
+- **Each build expires 90 days after it was uploaded.** TestFlight shows
+  the days left. Install the newer build before then; if a build has expired,
+  Kioku won't open until you install a newer one. Your data is kept.
+- TestFlight builds can be a little ahead of the GitHub release.
+- TestFlight shares some data with the developer; see [Privacy](../privacy.md#testflight).
 
 ## AltStore (recommended)
 
@@ -25,12 +47,15 @@ LiveContainer or any tool that signs apps with your Apple ID.
 
 ## Things to know
 
-- Apps signed with a **free Apple ID expire after 7 days**. AltStore and
+- Sideloaded apps signed with a **free Apple ID expire after 7 days**. AltStore and
   SideStore refresh them in the background; with Sideloadly, install again
   before it expires. An expired app won't open, but its data is kept:
   installing again brings it back.
 - To update, install the new `.ipa` over the old one (same bundle id). Your
   data stays.
+- A TestFlight copy and a sideloaded copy may be separate apps with separate
+  data. To switch, sync with AnkiWeb or export a `.colpkg` (File › Export)
+  first.
 - Kioku's files are in the **Files** app › On My iPhone › **Kioku**. See
   [Your Files](../using/files.md).
 

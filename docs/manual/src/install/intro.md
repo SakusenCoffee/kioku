@@ -8,7 +8,8 @@ Every release is on [GitHub Releases](https://github.com/krmanik/kioku/releases/
 | `Kioku-Android-<version>-arm64.apk` | [Android, native](android.md) |
 | `Kioku-Termux-<version>-arm64.apk` | [Android, Termux](termux.md) |
 
-Kioku isn't in the App Store or Google Play.
+Kioku isn't in the App Store or Google Play. On iPhone and iPad it's also on
+[TestFlight](ios.md#testflight-on-request), on request.
 
 **Updating keeps your data.** Install the new version over the old one:
 collections, media, add-ons and settings stay. Don't uninstall first:

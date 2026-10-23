@@ -10,23 +10,31 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-iOS-0.2.2-unsigned.ipa"><img alt="Download for iOS" src="https://img.shields.io/badge/Download%20for-iOS-000000?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Android-0.2.2-arm64.apk"><img alt="Download for Android (native)" src="https://img.shields.io/badge/Download%20for-Android-1E7F3C?labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Termux-0.2.2-arm64.apk"><img alt="Download for Android (Termux)" src="https://img.shields.io/badge/Download%20for-Termux-2563EB?labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/krmanik/kioku?label=version"></a>
+  <a href="https://github.com/krmanik/kioku/commits/main"><img alt="Commit activity" src="https://img.shields.io/github/commit-activity/m/krmanik/kioku"></a>
+  <a href="https://github.com/krmanik/kioku/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/krmanik/kioku?style=flat"></a>
+  <a href="https://github.com/krmanik/kioku/forks"><img alt="Forks" src="https://img.shields.io/github/forks/krmanik/kioku?style=flat"></a>
+  <a href="https://github.com/krmanik/kioku/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/krmanik/kioku"></a><br>
+  <img alt="Anki 26.08.1" src="https://img.shields.io/badge/Anki-26.08.1-2563EB">
+  <img alt="iOS 17+" src="https://img.shields.io/badge/iOS-17%2B-000000?logo=apple&logoColor=white">
+  <img alt="Android 7+" src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white">
+  <img alt="Qt 6.11" src="https://img.shields.io/badge/Qt-6.11-41CD52?logo=qt&logoColor=white">
+  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white">
+</p>
+
+<h3 align="center">Download</h3>
+
+<p align="center">
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-iOS-0.2.2-unsigned.ipa"><img alt="Download iOS" src="https://img.shields.io/badge/Download-iOS-000000?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="mailto:krmanik@outlook.com?subject=Kioku%20TestFlight"><img alt="iOS TestFlight on request" src="https://img.shields.io/badge/TestFlight-on%20request-0D96F6?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a><br>
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Android-0.2.2-arm64.apk"><img alt="Download Android (native)" src="https://img.shields.io/badge/Download-Android-1E7F3C?labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Termux-0.2.2-arm64.apk"><img alt="Download Android (Termux)" src="https://img.shields.io/badge/Download-Termux-2563EB?labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a>
 </p>
 
 <p align="center">
   <a href="https://krmanik.github.io/kioku/"><b>User manual</b></a> ·
   <a href="https://github.com/krmanik/kioku/releases/latest">Releases</a> ·
   <a href="https://github.com/krmanik/kioku/issues">Issues</a>
-</p>
-
-<p align="center">
-  <img alt="Anki 26.08.1" src="https://img.shields.io/badge/Anki-26.08.1-2563EB">
-  <img alt="iOS 17+" src="https://img.shields.io/badge/iOS-17%2B-000000?logo=apple&logoColor=white">
-  <img alt="Android 7+" src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white">
-  <img alt="Qt 6.11" src="https://img.shields.io/badge/Qt-6.11-41CD52?logo=qt&logoColor=white">
-  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white">
 </p>
 
 ---
@@ -46,7 +54,7 @@ for "memory".)
 | **How** | Python, Qt and PyQt6 compiled into the app; system web view | same as iOS, Android System WebView | Termux userland, X11 display, Qt WebEngine as on Linux |
 | **Feels like** | a phone app | a phone app | a small Linux desktop |
 | **Extras** | sync server on the phone | sync server, AnkiDroid's media | Linux apps on demand, remote desktop |
-| **Install** | [AltStore or sideload](https://krmanik.github.io/kioku/install/ios.html) | [APK](https://krmanik.github.io/kioku/install/android.html) | [APK](https://krmanik.github.io/kioku/install/termux.html) |
+| **Install** | [TestFlight (on request), AltStore or sideload](https://krmanik.github.io/kioku/install/ios.html) | [APK](https://krmanik.github.io/kioku/install/android.html) | [APK](https://krmanik.github.io/kioku/install/termux.html) |
 
 <h3 align="center">iPhone and iPad</h3>
 <p align="center">

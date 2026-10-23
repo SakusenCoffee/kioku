@@ -2,7 +2,7 @@ Kioku runs the open-source Anki desktop app (26.08) natively on iPhone and iPad:
 
 Please test with a copy of your collection (sync from AnkiWeb, or import a .colpkg through the Files app), and back up first: this is early software.
 
-What to try: reviewing, Browse, adding and editing notes, statistics, deck options, AnkiWeb sync, and the add-ons you use. Known limits: ogg/opus audio does not play yet; add-ons that start other programs (such as MeCab readings) cannot work on iOS.
+What to try: reviewing, Browse, adding and editing notes, statistics, deck options, AnkiWeb sync, and the add-ons you use. Known limits: add-ons that start other programs (such as MeCab readings) cannot work on iOS. Each TestFlight build expires after 90 days; install the newer build before then, your data is kept.
 
 Report problems at https://github.com/krmanik/kioku/issues or with TestFlight's feedback.
 

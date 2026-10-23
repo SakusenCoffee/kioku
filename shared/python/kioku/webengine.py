@@ -565,7 +565,7 @@ class QWebEnginePage(QObject, _Lenient):
             (webscripts.PRELUDE, start, False),
             (webscripts.VIEWPORT, end, True),
         ]
-        headers = self._profile._headers_for(QUrl("http://127.0.0.1/"))
+        headers = self._profile._headers_for(_media_server_url())
         if headers:
             converted.append((_auth_script(headers), start, False))
         converted += [s._for_webkit() for s in scripts if s.sourceCode()]
@@ -799,6 +799,16 @@ def _qt_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: _qt_value(v) for k, v in value.items()}
     return value
+
+
+def _media_server_url() -> QUrl:
+    """Anki's local web server, to ask the request interceptor about: since
+    26.09 it adds its headers only to URLs with the server's host and port."""
+    import aqt
+
+    if getattr(aqt.mw, "mediaServer", None) is None:
+        return QUrl("http://127.0.0.1/")
+    return QUrl(aqt.mw.serverURL())
 
 
 def _auth_script(headers: dict[str, str]) -> str:

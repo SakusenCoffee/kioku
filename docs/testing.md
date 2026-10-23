@@ -546,3 +546,23 @@ Max, build 7, synthetic touch events in the page:
 Screenshot of the dialog in the manual (`using/native.md`). Host tests: 79.
 Not tested: a real finger swipe, an iPad (IPA build 7 for
 BrowserStack), Android.
+
+## Anki 26.09.3 update (2026-10-23)
+
+What changed upstream that Kioku depends on: `python3 -I shared/tools/anki_drift.py`
+(26.08.1 → 26.09.3: `setupGL`, `AnkiApp.__init__`, `AnkiQt.__init__`,
+`AnkiWebView.__init__` changed; the sync server patch applies). Fixes in
+[fixes.md › Anki updates](fixes.md#anki-updates).
+
+| Check | Result |
+| --- | --- |
+| Host tests (`shared/tests/run.sh`, rsbridge from 26.09.3 with the reworked sync server patch) | ✅ 79 passed |
+| iOS (iPhone 15 Pro Max, iOS 27.0.1): starts, log says `Starting Anki 26.09.3` | ✅ (the first build failed with the build hash error in fixes.md, fixed) |
+| iOS: Statistics' web view gets the `Authorization` header for `mw.serverURL()` and draws its graphs | ✅ |
+| iOS: crash sweep (`tools/smoke.sh`) | ✅ 22/22, back on User 1 |
+| iOS: Browse, then Add: `aqt.dialogs.activeWindow()` (26.09's focus tracking, used by the editor's Fields and Cards buttons) is Add | ✅ |
+| iOS: `syncserver_start()` on a free port answers `/health`, `syncserver_stop()` closes the port | ✅ |
+| Android (emulator, swiftshader): starts with `Starting Anki 26.09.3`, profile User 2 with its add-ons | ✅ |
+| Android: Statistics gets the `Authorization` header and draws its graphs; Browse, then Add: `activeWindow()` is Add; sync server start, `/health`, stop | ✅ |
+| Android: crash sweep (`ios/tools/smoke.py` through `devcmd.sh`) | ✅ 22 steps, no crash. Check Database showed "wrapped C/C++ object of type ProgressDialog has been deleted": on the emulator it runs well over the sweep's 2.5 s step, and the sweep closed its progress window. Run alone, it finishes without an error |
+| Termux variant | not built: the `anki` 26.09.3 .deb needs an x86_64 Linux host with Docker (recipe bumped in krmanik/termux-packages, uncommitted) |

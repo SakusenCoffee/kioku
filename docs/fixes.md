@@ -154,3 +154,19 @@ Guide and results: [termux/docs/remote-desktop.md](../termux/docs/remote-desktop
 | "Run without battery limits" still said "Recommended" after allowing it | the state file was written only at session start and Turn on | the bridge re-reads it every 2 s for a minute after opening Android's prompt |
 | Power off didn't end the session (an existing bug) | Qt 6's `QApplication.quit()` is cancelled when a window refuses to close, and the desktop shell always refuses | `QApplication.exit(0)`; with the remote screen on, Anki there is closed first (the session's end gives it 3 s) |
 | The session's wake lock ends after 10 minutes | `acquire(10 min)` | the remote session holds its own wake lock and a Wi-Fi lock until it is turned off |
+
+## Anki updates
+
+How to move to a new release, and why patches are kept small:
+[shared/patches/README.md](../shared/patches/README.md). The `Anki update`
+workflow's pull request lists what changed in the parts of Anki that Kioku
+replaces (`shared/tools/anki_drift.py`).
+
+| Problem | Cause | Fix |
+| --- | --- | --- |
+| Changing `ANKI_TAG` kept building the old release | `fetch_deps.sh` cloned Anki only when `deps/anki` was missing; the host tests' venv kept its first aqt | `shared/tools/anki_source.sh` replaces a checkout of another tag (keeping `target/`) and reapplies the patches onto clean sources when they changed; `shared/tests/run.sh` reinstalls aqt when its version differs |
+| The sync server patch could conflict with every change to Anki's sync server | `BackgroundServer` and a copy of `make_server()` lived inside Anki's `http_server/mod.rs` | the code moved to new files (`rslib/src/sync/http_server/kioku.rs`, `pylib/rsbridge/kioku.rs`); Anki's own files get four lines: two `mod kioku;`, one registration call, and `make_server()` waits on `kioku::shutdown_signal()` (Ctrl+C as before, or a `BackgroundServer`'s stop) |
+| 26.09: Kioku ended at start with a `TypeError` | `setupGL()` takes the video driver as a second argument; Kioku's stand-in took only `pm` | the stand-in takes any arguments (`patches.py`) |
+| 26.09: deck options, the editor, statistics and other pages got 403 from Anki's server | Anki's request interceptor adds the API key only when scheme, host **and port** match `mw.serverURL()`; the stand-in for Qt WebEngine asked it about `http://127.0.0.1/` | `webengine.py` asks about `mw.serverURL()` |
+| 26.09 (Termux): Anki came up at desktop size, ignoring the 2× phone scale | Anki now sets `QT_SCALE_FACTOR` after creating the `QApplication`, when Qt no longer reads it | `launch_anki.py` sets it right after the profile metadata loads (`ProfileManager.setupMeta`) |
+| 26.09 on iOS: `rsbridge and anki build hashes do not match: 29bb700b vs 39e4b0b4` | the app bundle kept 26.08.1's `anki/buildinfo.py`: Anki's wheels date every file 2020-02-02, the file kept its size, and `rsync -a` (`bundle_python.sh`) skips files with the same size and time | `prepare_site.sh` unpacks the wheels with `unzip -DD` (current time) |

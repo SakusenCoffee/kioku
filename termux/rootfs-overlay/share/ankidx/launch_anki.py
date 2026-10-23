@@ -89,9 +89,21 @@ def signal_ready() -> None:
         open(path, "w").close()
 
 
+_setup_meta = ProfileManager.setupMeta
+
+
+def setup_meta(self: ProfileManager):  # type: ignore[no-untyped-def]
+    result = _setup_meta(self)
+    # Anki 26.09 sets QT_SCALE_FACTOR only after creating the QApplication,
+    # which Qt no longer reads then; set it as soon as the scale is known
+    os.environ["QT_SCALE_FACTOR"] = str(self.uiScale())
+    return result
+
+
 ProfileManager.uiScale = ui_scale
 ProfileManager.check_for_updates = check_for_updates
 ProfileManager.video_driver = video_driver
+ProfileManager.setupMeta = setup_meta
 
 import aqt  # noqa: E402
 from aqt import gui_hooks  # noqa: E402

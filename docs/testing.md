@@ -475,3 +475,23 @@ installed over the old one (data kept), profile User 1 (258,430 cards):
 | File › Exit: process ends, no crash in logcat; relaunch works | ✅ |
 
 Not repeated on a device this round: iOS, Termux variant, AnkiDroid's media.
+
+Advanced features, same day:
+
+| Test | Result |
+| --- | --- |
+| AnkiDroid's media (M30s, AnkiDroid 2.25.3 full): new profile in that mode opens with `/storage/emulated/0/AnkiDroid/collection.media` | ✅ |
+| A note with an image: the file is written into AnkiDroid's folder; AnkiDroid's `collection.anki2` and `collection.media.db` unchanged | ✅ |
+| Check Media: AnkiDroid's 326 files count as unused, deleting them stays off by default | ✅ |
+| Termux remote desktop: `termux/tools/test_on_device.sh` on the emulator | ✅ 19 tests |
+
+Not repeated: the live VNC session (same emulator build as the 2026-10-23
+round) and AnkiDroid syncing through the phone server on the M30s (it would
+change AnkiDroid's own sync settings). The M30s's Termux variant is signed
+with another key, so the new build can't be installed over it without
+deleting its data.
+
+Test mistake: cleaning up the test profile with `mw.pm.remove(name)` deleted
+the *loaded* profile's folder (Anki's `remove` ignores `name` for the folder,
+and on Android falls back from the trash to `rmtree`). User 1 was restored
+from its `.colpkg` (258,430 cards, 27,195 media files).

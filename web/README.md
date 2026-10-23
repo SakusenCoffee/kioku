@@ -20,7 +20,9 @@ Speech API). Profiles, collections and media are kept in the browser's
 IndexedDB across reloads. Dialogs that block (`QDialog.exec()`) and
 collection work on background threads behave like on the desktop.
 
-Missing: AnkiWeb sync; serving from anywhere but `127.0.0.1`. See [HANDOFF.md](HANDOFF.md)
+Sync with AnkiWeb or a self-hosted server works through a WebSocket→TCP
+relay in `tools/serve.py`. Missing: serving from anywhere but
+`127.0.0.1`. See [HANDOFF.md](HANDOFF.md)
 for what to do next.
 
 Download: `kioku.wasm` 94 MB (18.5 MB with brotli), `kioku.data` 34 MB
@@ -46,9 +48,10 @@ python3 tools/serve.py build/cmake 8765
 
 Open <http://127.0.0.1:8765/app.html>. It must be `127.0.0.1` (Anki's page
 URLs have to be the page's own origin, see [docs/architecture.md](docs/architecture.md)).
-Python files are packed at link time: after changing only Python,
-`touch src/main.cpp` and run `tools/build.sh` (about 5 minutes, Asyncify is
-slow); files in `shell/` can be copied into `build/cmake/` directly.
+The app's Python and `shell/` are packed into `app.data` and copied by
+`tools/pack_app.sh` on every `tools/build.sh` without relinking (seconds);
+changes to C++, Rust, the stdlib or site-packages relink (about 5 minutes,
+Asyncify is slow).
 
 ## Layout
 

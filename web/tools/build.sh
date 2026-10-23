@@ -1,7 +1,8 @@
 #!/bin/bash
 # Configure (once) and build kioku.wasm with the app page (build/cmake).
-# The Python files are packed at link time: after changing only Python,
-# `touch src/main.cpp` before building.
+# The app's Python (python/, Kioku's shared/python) and shell/ are packed
+# by tools/pack_app.sh on every build without relinking: seconds instead of
+# minutes. The stdlib and site-packages (kioku.data) are packed at link time.
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 source "$ROOT/deps/emsdk/emsdk_env.sh" >/dev/null 2>&1

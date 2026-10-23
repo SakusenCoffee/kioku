@@ -26,6 +26,9 @@ def prepare() -> None:
     from . import http
 
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeMenuBar)
+    # roots for rustls (reqwest with native roots, which reads this file):
+    # the wasm file system has no system store
+    os.environ.setdefault("SSL_CERT_FILE", "/site/certifi/cacert.pem")
     web.start()
     http.setup(int(web.js("port")))
     _fill_screen()

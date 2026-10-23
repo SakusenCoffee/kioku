@@ -72,4 +72,20 @@ Run with `PROFILE=<folder>` so IndexedDB survives between runs.
 | Import `Anki-NeetCode-Pro.apkg`, review | ✅ card renders; `CodeMirror is not defined` once (the deck's scripts, timing; not on the next run) |
 | HSK 1 Writing cards: Space/3 after the question | ⚠️ not answered: the template's drawing canvas keeps the keys |
 | Export through File › Export dialog clicks | ⏳ not clicked through (the same `save_path`) |
+
+### 2026-10-24 c: sync (Chrome 155, headless)
+
+Local server: Anki's `anki-sync-server` built from Kioku's Anki source
+(`PROTOC=$(command -v protoc) CARGO_TARGET_DIR=…/build/host-sync cargo build
+--release -p anki-sync-server` in `ios/deps/anki`), run with
+`SYNC_USER1=kioku:test SYNC_HOST=127.0.0.1 SYNC_PORT=8090`, and
+`KIOKU_RELAY_ALLOW=127.0.0.1:8090 python3 tools/serve.py build/cmake 8765`.
+
+| Test | Result |
+| --- | --- |
+| Login with a wrong password (AnkiWeb) | ✅ "Email or password was incorrect" (TLS through the relay) |
+| Local server: login, Sync button, "Replace it with local collection?" → Yes | ✅ full upload + media (322 files, 70 MB on the server) |
+| Local server, fresh browser profile: Sync → "Download?" → Yes | ✅ 752 notes, 322 media files |
+| AnkiWeb (test account, fresh profile): `sync_collection` → full sync required → `full_download` | ✅ 20,858 notes, 39,754 cards, 9 decks, ~3 s; never uploaded |
+| `full_download` without a normal sync first | ⚠️ AnkiWeb 400 "missing original size" (skips `meta`, which picks the endpoint; Anki's UI never does this) |
 | Firefox, Safari, a phone browser | ⏳ not tested (`moveBefore()` and JSPI-free Asyncify should work; COOP/COEP needed everywhere) |

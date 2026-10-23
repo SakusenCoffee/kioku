@@ -1,6 +1,6 @@
 // Page side of Kioku's web platform layer (python/kioku_platform): the
 // iframes that stand in for Qt WebEngine views, the service worker's request
-// relay and the file picker. Python calls in through window.__kiokuWeb (via
+// relay, the file picker, audio and sockets. Python calls in through window.__kiokuWeb (via
 // _kioku_web.run_script); events go back through post(), which reaches
 // kioku_platform.web._post() via the wasm export kioku_post.
 
@@ -407,6 +407,21 @@
   });
 
   let audio = null;
+
+  // Emscripten's sockets connect as WebSockets to ws://<host>:<port>/;
+  // send them to the relay next to the page (tools/serve.py), which
+  // passes them on over TCP
+  const NativeWebSocket = window.WebSocket;
+  window.WebSocket = class extends NativeWebSocket {
+    constructor(url, protocols) {
+      const u = new URL(url);
+      if (u.host !== location.host) {
+        const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+        url = `${scheme}//${location.host}/__relay/${u.hostname}:${u.port || 80}`;
+      }
+      super(url, protocols);
+    }
+  };
   // the voice list fills in asynchronously
   if (window.speechSynthesis) speechSynthesis.getVoices();
   // save /home/web_user (storage.js) on a timer and when the page goes

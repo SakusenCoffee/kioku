@@ -51,18 +51,19 @@ set_target_properties(kioku PROPERTIES QT_WASM_PTHREAD_POOL_SIZE 32)
 target_link_options(kioku PRIVATE
     -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM -lidbfs.js
     "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/shell/storage.js"
+    "SHELL:--pre-js ${CMAKE_BINARY_DIR}/app-data.js"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/stdlib@/python/lib/python3.14"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/site@/site"
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/app/probe.py@/app/probe.py"
-    "SHELL:--preload-file ${KIOKU_REPO}/shared/python/kioku@/app/kioku"
-    "SHELL:--preload-file ${KIOKU_REPO}/shared/python/PyQt6@/app/PyQt6"
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/python/kioku_platform@/app/kioku_platform"
     "SHELL:--exclude-file *__pycache__*"
 )
 
-# the app page, its service worker and JavaScript glue (shell/)
-add_custom_command(TARGET kioku POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_SOURCE_DIR}/shell/app.html ${CMAKE_SOURCE_DIR}/shell/sw.js
-            ${CMAKE_SOURCE_DIR}/shell/kioku-web.js $<TARGET_FILE_DIR:kioku>
+# The app's own Python (app.data) and the page files (shell/), packed on
+# every build without relinking (tools/pack_app.sh); kioku.data keeps the
+# stdlib and site-packages
+add_custom_target(app_files ALL
+    COMMAND ${CMAKE_SOURCE_DIR}/tools/pack_app.sh ${CMAKE_BINARY_DIR}
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/app-data.js
     VERBATIM)
+add_dependencies(kioku app_files)
+set_property(TARGET kioku APPEND PROPERTY LINK_DEPENDS
+    ${CMAKE_SOURCE_DIR}/shell/storage.js ${CMAKE_BINARY_DIR}/app-data.js)

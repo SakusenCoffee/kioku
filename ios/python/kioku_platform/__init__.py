@@ -10,7 +10,7 @@ from rubicon.objc import Block, ObjCClass, at
 from rubicon.objc.runtime import objc_id
 
 from .files import pick_files, save_path
-from .webview import WebView, prop
+from .webview import WebView, delete_cookies, prop, set_cookie
 
 __all__ = [
     "WebView",
@@ -19,6 +19,7 @@ __all__ = [
     "cache_dir",
     "config_dir",
     "dark_mode",
+    "delete_cookies",
     "documents_dir",
     "keep_awake",
     "key_window",
@@ -26,6 +27,7 @@ __all__ = [
     "pick_files",
     "save_path",
     "screenshot",
+    "set_cookie",
     "sync_server_running",
     "tts_player",
 ]

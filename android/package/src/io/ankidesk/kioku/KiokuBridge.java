@@ -26,6 +26,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Toast;
 import android.webkit.ConsoleMessage;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
@@ -151,6 +152,14 @@ public class KiokuBridge {
                 return onUiThread(() -> page(a).view.getUrl());
             case "webview.title":
                 return onUiThread(() -> page(a).view.getTitle());
+            case "webview.history":
+                return onUiThread(() -> {
+                    android.webkit.WebBackForwardList list = page(a).view.copyBackForwardList();
+                    int i = list.getCurrentIndex();
+                    return obj("back", i > 0 ? list.getItemAtIndex(i - 1).getUrl() : "",
+                            "forward", i >= 0 && i + 1 < list.getSize()
+                                    ? list.getItemAtIndex(i + 1).getUrl() : "");
+                });
             case "darkMode":
                 return (activity.getResources().getConfiguration().uiMode
                         & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
@@ -184,6 +193,28 @@ public class KiokuBridge {
             throw new IllegalStateException("no web view " + a.getInt("id"));
         }
         return p;
+    }
+
+    /** CookieManager can't delete one domain's cookies: expire the ones it
+     * sends to that domain, host-only and domain-wide (it keeps both kinds). */
+    private static void deleteCookies(String domain, String name) {
+        CookieManager cookies = CookieManager.getInstance();
+        String host = domain.startsWith(".") ? domain.substring(1) : domain;
+        String url = "https://" + host + "/";
+        String all = cookies.getCookie(url);
+        if (all == null) {
+            return;
+        }
+        for (String pair : all.split(";")) {
+            String n = pair.trim().split("=", 2)[0];
+            if (n.isEmpty() || !(name.isEmpty() || name.equals(n))) {
+                continue;
+            }
+            String expired = n + "=; Max-Age=0; Path=/";
+            cookies.setCookie(url, expired);
+            cookies.setCookie(url, expired + "; Domain=" + host);
+        }
+        cookies.flush();
     }
 
     private static void dispatchAsync(String method, JSONObject a) throws Exception {
@@ -250,6 +281,15 @@ public class KiokuBridge {
                 break;
             case "webview.forward":
                 page(a).view.goForward();
+                break;
+            case "cookies.set": {
+                CookieManager cookies = CookieManager.getInstance();
+                cookies.setCookie(a.getString("url"), a.getString("cookie"));
+                cookies.flush();
+                break;
+            }
+            case "cookies.delete":
+                deleteCookies(a.getString("domain"), a.getString("name"));
                 break;
             case "webview.destroy": {
                 Page p = pages.remove(a.getInt("id"));

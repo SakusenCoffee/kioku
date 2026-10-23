@@ -26,6 +26,7 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtGui import QAction, QColor, QGuiApplication, QIcon
+from PyQt6.QtNetwork import QNetworkCookie
 from PyQt6.QtWidgets import QApplication, QWidget
 
 import kioku_platform as platform
@@ -314,13 +315,21 @@ class QWebEngineProfile(QObject, _Lenient):
     downloadRequested = pyqtSignal(object)
     _default: QWebEngineProfile | None = None
 
-    def __init__(self, *args: Any) -> None:
-        parent = next((a for a in args if isinstance(a, QObject)), None)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # QWebEngineProfile(parent=None) or (storageName, parent=None)
+        parent = kwargs.get("parent")
+        if parent is None:
+            parent = next((a for a in args if isinstance(a, QObject)), None)
+        name = kwargs.get("storageName")
+        if name is None:
+            name = next((a for a in args if isinstance(a, str)), "")
         super().__init__(parent)
+        self._storage_name = name
         self._scripts = QWebEngineScriptCollection()
         self._settings = QWebEngineSettings()
         self._interceptor: QWebEngineUrlRequestInterceptor | None = None
         self._user_agent = ""
+        self._cookies = QWebEngineCookieStore(self)
 
     @classmethod
     def defaultProfile(cls) -> QWebEngineProfile:
@@ -347,7 +356,13 @@ class QWebEngineProfile(QObject, _Lenient):
         return self._user_agent
 
     def isOffTheRecord(self) -> bool:
-        return True
+        return not self._storage_name
+
+    def storageName(self) -> str:
+        return self._storage_name
+
+    def cookieStore(self) -> QWebEngineCookieStore:
+        return self._cookies
 
     def _headers_for(self, url: QUrl) -> dict[str, str]:
         if self._interceptor is None:
@@ -467,13 +482,19 @@ class QWebEnginePage(QObject, _Lenient):
     # WKNavigationType -> Qt navigation type
     _NAV_TYPES = {0: 0, 1: 2, 2: 3, 3: 4, 4: 2, -1: 5}
 
-    def __init__(self, *args: Any) -> None:
-        profile = next((a for a in args if isinstance(a, QWebEngineProfile)), None)
-        parent = next(
-            (a for a in args if isinstance(a, QObject) and a is not profile), None
-        )
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # QWebEnginePage(parent=None) or (profile, parent=None)
+        profile = kwargs.get("profile")
+        if profile is None:
+            profile = next((a for a in args if isinstance(a, QWebEngineProfile)), None)
+        parent = kwargs.get("parent")
+        if parent is None:
+            parent = next(
+                (a for a in args if isinstance(a, QObject) and a is not profile), None
+            )
         super().__init__(parent)
         self._profile = profile or QWebEngineProfile.defaultProfile()
+        self._history = QWebEngineHistory(self)
         self._settings = QWebEngineSettings()
         self._scripts = QWebEngineScriptCollection()
         self._channel: QWebChannel | None = None
@@ -530,6 +551,9 @@ class QWebEnginePage(QObject, _Lenient):
 
     def view(self) -> QWebEngineView | None:
         return self._view
+
+    def history(self) -> QWebEngineHistory:
+        return self._history
 
     # Loading ---------------------------------------------------------------
 
@@ -987,11 +1011,115 @@ class QWebEngineUrlSchemeHandler(QObject, _Lenient):
 
 
 class QWebEngineCookieStore(QObject, _Lenient):
-    pass
+    """All profiles share the platform web view's cookie jar, so a store only
+    knows the cookies set through it; deleteAllCookies() removes those and
+    whatever the web pages set on the same domains."""
+
+    cookieAdded = pyqtSignal(QNetworkCookie)
+    cookieRemoved = pyqtSignal(QNetworkCookie)
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._known: dict[tuple[str, str, str], QNetworkCookie] = {}
+
+    @staticmethod
+    def _key(cookie: QNetworkCookie) -> tuple[str, str, str]:
+        return (bytes(cookie.name()).decode(), cookie.domain(), cookie.path())
+
+    @staticmethod
+    def _url_for(cookie: QNetworkCookie, origin: QUrl) -> str:
+        if not origin.isEmpty():
+            return origin.toString()
+        return f"https://{cookie.domain().lstrip('.')}{cookie.path() or '/'}"
+
+    def setCookie(self, cookie: QNetworkCookie, origin: QUrl = QUrl()) -> None:
+        cookie = QNetworkCookie(cookie)
+        if not cookie.domain() and not origin.isEmpty():
+            cookie.setDomain(origin.host())
+        if not cookie.domain():
+            logger.warning("cookie without domain or origin ignored")
+            return
+        raw = bytes(cookie.toRawForm(QNetworkCookie.RawForm.Full)).decode()
+        platform.set_cookie(self._url_for(cookie, origin), raw)
+        self._known[self._key(cookie)] = cookie
+        self.cookieAdded.emit(cookie)
+
+    def deleteCookie(self, cookie: QNetworkCookie, origin: QUrl = QUrl()) -> None:
+        domain = cookie.domain() or origin.host()
+        platform.delete_cookies(domain, bytes(cookie.name()).decode())
+        removed = self._known.pop(self._key(cookie), None)
+        self.cookieRemoved.emit(removed or cookie)
+
+    def deleteAllCookies(self) -> None:
+        for domain in {c.domain() for c in self._known.values()}:
+            platform.delete_cookies(domain, None)
+        for cookie in list(self._known.values()):
+            self.cookieRemoved.emit(cookie)
+        self._known.clear()
+
+    def deleteSessionCookies(self) -> None:
+        for key, cookie in list(self._known.items()):
+            if cookie.isSessionCookie():
+                self.deleteCookie(cookie)
+
+    def loadAllCookies(self) -> None:
+        for cookie in list(self._known.values()):
+            self.cookieAdded.emit(cookie)
+
+    def setCookieFilter(self, filter: Any = None) -> None:
+        pass
+
+
+class QWebEngineHistoryItem:
+    def __init__(self, url: str = "") -> None:
+        self._url = QUrl(url)
+
+    def url(self) -> QUrl:
+        return QUrl(self._url)
+
+    def originalUrl(self) -> QUrl:
+        return QUrl(self._url)
+
+    def title(self) -> str:
+        return ""
+
+    def isValid(self) -> bool:
+        return not self._url.isEmpty()
 
 
 class QWebEngineHistory(_Lenient):
-    pass
+    """Back/forward state of a page, read from the platform web view."""
+
+    def __init__(self, page: QWebEnginePage) -> None:
+        self._page = page
+
+    def _state(self) -> dict:
+        try:
+            return self._page._web.history()
+        except Exception:
+            logger.exception("reading web view history")
+            return {}
+
+    def canGoBack(self) -> bool:
+        return bool(self._state().get("back"))
+
+    def canGoForward(self) -> bool:
+        return bool(self._state().get("forward"))
+
+    def backItem(self) -> QWebEngineHistoryItem:
+        return QWebEngineHistoryItem(self._state().get("back") or "")
+
+    def forwardItem(self) -> QWebEngineHistoryItem:
+        return QWebEngineHistoryItem(self._state().get("forward") or "")
+
+    def currentItem(self) -> QWebEngineHistoryItem:
+        return QWebEngineHistoryItem(self._page.url().toString())
+
+    def back(self) -> None:
+        self._page._web.back()
+
+    def forward(self) -> None:
+        self._page._web.forward()
 
 
 class QWebEngineFindTextResult(_Lenient):

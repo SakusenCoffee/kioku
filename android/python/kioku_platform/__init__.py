@@ -8,7 +8,7 @@ import os
 from typing import Any, Callable
 
 from .files import pick_files, save_path
-from .webview import WebView
+from .webview import WebView, delete_cookies, set_cookie
 
 __all__ = [
     "WebView",
@@ -18,6 +18,7 @@ __all__ = [
     "cache_dir",
     "config_dir",
     "dark_mode",
+    "delete_cookies",
     "dev_allowed",
     "documents_dir",
     "keep_awake",
@@ -30,6 +31,7 @@ __all__ = [
     "request_all_files_access",
     "save_path",
     "screenshot",
+    "set_cookie",
     "sync_server_running",
     "tts_player",
 ]

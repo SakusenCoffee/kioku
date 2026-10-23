@@ -37,6 +37,17 @@ for _type in ("message", "channel", "navigate", "loadStarted", "loadFinished", "
     bridge.listen(_type, _route)
 
 
+def set_cookie(url: str, header: str) -> None:
+    """Store a cookie given in Set-Cookie form for url (all pages share
+    android.webkit.CookieManager's jar)."""
+    bridge.call("cookies.set", url=url, cookie=header)
+
+
+def delete_cookies(domain: str, name: str | None) -> None:
+    """Delete the cookies on domain, or only `name`."""
+    bridge.call("cookies.delete", domain=domain, name=name or "")
+
+
 class WebView:
     """Callbacks (on_*) are overridden by kioku.webengine."""
 
@@ -114,6 +125,10 @@ class WebView:
 
     def title(self) -> str:
         return bridge.call("webview.title", id=self.id) or ""
+
+    def history(self) -> dict[str, str]:
+        """URLs of the back and forward items ("" when there is none)."""
+        return bridge.call("webview.history", id=self.id) or {}
 
     # JavaScript --------------------------------------------------------------
 

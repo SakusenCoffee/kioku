@@ -43,9 +43,12 @@ NSURL = ObjCClass("NSURL")
 NSMutableURLRequest = ObjCClass("NSMutableURLRequest")
 UIColor = ObjCClass("UIColor")
 NSData = ObjCClass("NSData")
+NSDictionary = ObjCClass("NSDictionary")
 NSValue = ObjCClass("NSValue")
 UIPrintPageRenderer = ObjCClass("UIPrintPageRenderer")
 UIGraphicsPDFRenderer = ObjCClass("UIGraphicsPDFRenderer")
+WKWebsiteDataStore = ObjCClass("WKWebsiteDataStore")
+NSHTTPCookie = ObjCClass("NSHTTPCookie")
 
 # WKUserScriptInjectionTime; the same values as kioku.webscripts
 AT_DOCUMENT_START = 0
@@ -76,6 +79,50 @@ def same(a: Any, b: Any) -> bool:
 def block(ptr: int | None, *argtypes: Any) -> ObjCBlock:
     """Wrap a block WebKit passed us; its blocks carry no type signature."""
     return ObjCBlock(objc_id(ptr), None, *argtypes)
+
+
+# Cookies ---------------------------------------------------------------------
+# Every WKWebView uses the default data store, so all pages share one jar.
+
+_cookie_blocks: set[Any] = set()
+
+
+def _cookie_store() -> Any:
+    return prop(prop(WKWebsiteDataStore, "defaultDataStore"), "httpCookieStore")
+
+
+def _domain_matches(cookie_domain: str, domain: str) -> bool:
+    a, b = cookie_domain.lstrip(".").lower(), domain.lstrip(".").lower()
+    return a == b or a.endswith("." + b) or b.endswith("." + a)
+
+
+def set_cookie(url: str, header: str) -> None:
+    """Store a cookie given in Set-Cookie form for url."""
+    nsurl = NSURL.URLWithString_(at(url))
+    fields = NSDictionary.dictionaryWithObject_forKey_(at(header), at("Set-Cookie"))
+    cookies = NSHTTPCookie.cookiesWithResponseHeaderFields_forURL_(fields, nsurl)
+    store = _cookie_store()
+    for cookie in cookies:
+        store.setCookie_completionHandler_(cookie, None)
+
+
+def delete_cookies(domain: str, name: str | None) -> None:
+    """Delete the cookies on domain (and its subdomains), or only `name`."""
+    store = _cookie_store()
+    holder: list[Any] = []
+
+    def got(array: objc_id) -> None:
+        _cookie_blocks.discard(holder[0])
+        for cookie in ObjCInstance(array):
+            if not _domain_matches(str(prop(cookie, "domain")), domain):
+                continue
+            if name is None or str(prop(cookie, "name")) == name:
+                store.deleteCookie_completionHandler_(cookie, None)
+
+    blk = Block(got, None, objc_id)
+    holder.append(blk)
+    _cookie_blocks.add(blk)
+    store.getAllCookies_(blk)
 
 
 # WKWebView instances keyed by pointer, so the shared ObjC delegates can find
@@ -331,6 +378,15 @@ class WebView:
     def title(self) -> str:
         t = prop(self.webview, "title")
         return str(t) if t is not None else ""
+
+    def history(self) -> dict[str, str]:
+        """URLs of the back and forward items ("" when there is none)."""
+        items = prop(self.webview, "backForwardList")
+        state = {}
+        for key, item in (("back", prop(items, "backItem")), ("forward", prop(items, "forwardItem"))):
+            u = prop(item, "URL") if item is not None else None
+            state[key] = str(prop(u, "absoluteString")) if u is not None else ""
+        return state
 
     # JavaScript --------------------------------------------------------------
 

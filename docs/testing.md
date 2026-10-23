@@ -565,4 +565,8 @@ What changed upstream that Kioku depends on: `python3 -I shared/tools/anki_drift
 | Android (emulator, swiftshader): starts with `Starting Anki 26.09.3`, profile User 2 with its add-ons | ✅ |
 | Android: Statistics gets the `Authorization` header and draws its graphs; Browse, then Add: `activeWindow()` is Add; sync server start, `/health`, stop | ✅ |
 | Android: crash sweep (`ios/tools/smoke.py` through `devcmd.sh`) | ✅ 22 steps, no crash. Check Database showed "wrapped C/C++ object of type ProgressDialog has been deleted": on the emulator it runs well over the sweep's 2.5 s step, and the sweep closed its progress window. Run alone, it finishes without an error |
-| Termux variant | not built: the `anki` 26.09.3 .deb needs an x86_64 Linux host with Docker (recipe bumped in krmanik/termux-packages, uncommitted) |
+| Termux variant: `anki_26.09.3_aarch64.deb` built in a 4-core Codespace ([building.md › Building the anki package](../termux/docs/building.md#building-the-anki-package), 29 min cold), released as [anki-26.09.3](https://github.com/krmanik/termux-packages/releases/tag/anki-26.09.3); paths under `./data/data/com.termux`, Depends the same as 26.08.1's | ✅ |
+| Termux (emulator, swiftshader, APK `0.1.0-anki26.09.3`): starts with `Starting Anki 26.09.3`, `aqt.appVersion` 26.09.3, Qt 6.11.2, Python 3.14.8, empty crash.log | ✅ |
+| Termux: phone scale reaches Qt before the QApplication (`launch_anki.py`'s setupMeta hook): `QT_SCALE_FACTOR`, `pm.uiScale()` and the window's device pixel ratio all 2.25 (the app's scale for 420 dpi), screen 480×1067 logical | ✅ |
+| Termux: Deck Options (web view, fits the width), Add (editor loads, `activeWindow()` is Add, a note added through the dialog and removed again), Statistics (draws) | ✅ |
+| Termux on the Samsung M30s | not tested: not connected |

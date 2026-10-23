@@ -62,6 +62,92 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 the Termux repositories yet (anki, python-markupsafe, python-orjson); they take precedence over
 the repositories' packages.
 
+## Building the anki package
+
+The `anki` .deb is built by hand in a GitHub Codespace: it needs x86_64 Linux with Docker, and a
+cold build takes about 29 minutes on 4 cores, too long to be worth a GitHub Actions workflow.
+Releases on krmanik/termux-packages named `anki-<version>` hold the result, and
+`.github/workflows/anki-update.yml` downloads `anki_<version>_aarch64.deb` from the latest one.
+
+The package keeps Termux's default package name (paths under `/data/data/com.termux`), which
+`tools/build_rootfs.py` retargets, so do not set `TERMUX_APP__PACKAGE_NAME` and do not use
+`tools/build-termux-packages.sh` for it.
+
+1. In `~/termux-packages` (branch `anki`), bump `TERMUX_PKG_VERSION` in
+   `x11-packages/anki/build.sh` and rebase onto the current upstream master:
+
+   ```sh
+   git fetch upstream master && git rebase upstream/master
+   git push --force-with-lease origin anki
+   ```
+
+   `-i` below downloads each dependency at the exact version its recipe names, and the Termux
+   repositories only keep the newest one. A branch a few days behind builds the outdated
+   dependencies from source instead (14 of them, harfbuzz among them, after 4 days), which takes
+   longer and links anki against libraries older than the phone's.
+
+2. Create a 4-core codespace (`standardLinux32gb`: 4 cores like GitHub's runners, 16 GB RAM,
+   $0.36/hour; it needs the `codespace` scope, `gh auth refresh -h github.com -s codespace`):
+
+   ```sh
+   gh codespace create -R krmanik/termux-packages -b anki -m standardLinux32gb --idle-timeout 120m
+   gh codespace ssh -c <name>
+   ```
+
+3. Its root disk has 12 GB free, too little for the build, while `/tmp` is a separate disk with
+   about 110 GB. Move Docker there. `/tmp` has a default ACL without execute for others, which
+   the image layers would inherit, so the container's `builder` user could not run anything
+   (`exec /bin/bash failed: Permission denied`); strip it on the new directories:
+
+   ```sh
+   sudo apt-get install -y acl
+   sudo pkill dockerd; sleep 3; sudo pkill containerd; sleep 2
+   for d in docker containerd; do
+       sudo mkdir /tmp/$d && sudo setfacl -bk /tmp/$d && sudo chmod 711 /tmp/$d
+       sudo mount --bind /tmp/$d /var/lib/$d
+   done
+   sudo sh -c 'nohup containerd --config /etc/containerd/config.toml >/tmp/containerd.log 2>&1 &'
+   sudo sh -c 'nohup dockerd --containerd /run/containerd/containerd.sock --dns 168.63.129.16 >/tmp/dockerd.log 2>&1 &'
+   ```
+
+4. Build, in the background so a dropped connection does not stop it:
+
+   ```sh
+   cd /workspaces/termux-packages
+   nohup ./scripts/run-docker.sh ./build-package.sh -i -a aarch64 anki > /tmp/anki-build.log 2>&1 &
+   ```
+
+5. Check `output/anki_<version>_aarch64.deb` (`dpkg-deb -f … Depends`, `dpkg-deb -c`: paths under
+   `./data/data/com.termux`), copy it out and publish it:
+
+   ```sh
+   gh codespace cp -e -c <name> 'remote:/workspaces/termux-packages/output/*.deb' .
+   gh release create anki-<version> -R krmanik/termux-packages --target <full commit sha> \
+       --latest anki_<version>_aarch64.deb python-markupsafe_*_aarch64.deb python-orjson_*_aarch64.deb
+   gh codespace stop -c <name>
+   ```
+
+   python-markupsafe and python-orjson are rebuilt as well; replace the ones in `local-debs/` only
+   when their versions changed.
+
+6. In this repository: replace the anki deb in `local-debs/` and set the Anki version in
+   `versionName` in `app/build.gradle` (the update workflow does both when the release exists).
+
+Measured on 2026-10-23 for 26.09.3 (4 cores, nothing cached):
+
+| Step | Time |
+|---|---|
+| Pull `ghcr.io/termux/package-builder` | 4 min 19 s |
+| Create the container | 31 s |
+| Download the dependencies from the Termux repositories | 3 min 35 s |
+| python-markupsafe (mostly building the host Python) | 6 min 53 s |
+| python-orjson | 36 s |
+| anki: source and setup | 1 min 36 s |
+| anki: `ninja wheels` | 8 min 3 s |
+| anki: `cargo build` of rsbridge for Android | 3 min 15 s |
+| anki: install and package | 14 s |
+| **Total** | **29 min 3 s** |
+
 ## Application id and the runtime
 
 Termux binaries hardcode `/data/data/<package>/files/usr`, so the runtime has to be made for the

@@ -85,6 +85,9 @@ jobs:
           restore-keys: termux-debs-${{ hashFiles('termux/tools/build_bootstrap.sh', 'termux/tools/fetch_debs.py') }}-
 
       - name: Build the runtime (bootstrap-aarch64.zip)
+        env:
+          # tools/fetch_anki_debs.py: the anki release of krmanik/termux-packages
+          GITHUB_TOKEN: ${{ github.token }}
         run: tools/build_bootstrap.sh
 
       - name: Version

@@ -49,7 +49,7 @@ git -C third_party/termux-x11 submodule update --init --depth 1
     libxkbfile:xkbfile libx11:x11 libxtrans:Xtrans xserver:xserver libepoxy:libepoxy; do
     patch -p1 -N -d "${p%%:*}" -i "$PWD/patches/${p##*:}.patch" </dev/null; done)
 
-# Runtime: Termux packages (+ local-debs/ from krmanik/termux-packages), cross-compiled
+# Runtime: Termux packages (+ the anki release of krmanik/termux-packages), cross-compiled
 # PyQt6.sip, pure-Python deps (tools/python-requirements.txt), pruned and zipped.
 tools/build_bootstrap.sh          # Linux: SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
@@ -57,15 +57,17 @@ tools/build_bootstrap.sh          # Linux: SSL_CERT_FILE=/etc/ssl/certs/ca-certi
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`local-debs/` holds packages built from the `anki` branch of
-[krmanik/termux-packages](https://github.com/krmanik/termux-packages/tree/anki) that are not in
-the Termux repositories yet (anki, python-markupsafe, python-orjson); they take precedence over
-the repositories' packages.
+The packages that are not in the Termux repositories yet (anki, python-markupsafe,
+python-orjson) come from the release `anki-<ANKI_TAG>` of
+[krmanik/termux-packages](https://github.com/krmanik/termux-packages/releases), with `ANKI_TAG`
+from `shared/versions.env`: `tools/fetch_anki_debs.py` downloads them to `build/anki-debs/` and
+checks their SHA-256. They take precedence over the repositories' packages, and .debs you put in
+`local-debs/` (not committed) take precedence over both.
 
 ## Building the anki package
 
-Releases on krmanik/termux-packages named `anki-<version>` hold the `anki` .deb, and
-`.github/workflows/anki-update.yml` downloads `anki_<version>_aarch64.deb` from the latest one.
+Releases on krmanik/termux-packages named `anki-<version>` hold the `anki` .deb, and the runtime
+build downloads the one for `ANKI_TAG` (see above).
 
 The package keeps Termux's default package name (paths under `/data/data/com.termux`), which
 `tools/build_rootfs.py` retargets, so do not set `TERMUX_APP__PACKAGE_NAME` and do not use
@@ -85,7 +87,8 @@ and python-orjson are reused while their recipes are unchanged. GitHub drops cac
 days, so a weekly scheduled run of the same workflow restores them to keep them. Untick "Use the
 build cache" to build from scratch.
 
-Then run Kioku's "Anki update" workflow, or do step 6 below by hand.
+Kioku's "Anki update" workflow bumps `ANKI_TAG` and `versionName`, and its pull request says
+whether the release exists yet.
 
 ### By hand in a Codespace
 
@@ -143,11 +146,8 @@ Then run Kioku's "Anki update" workflow, or do step 6 below by hand.
    gh codespace stop -c <name>
    ```
 
-   python-markupsafe and python-orjson are rebuilt as well; replace the ones in `local-debs/` only
-   when their versions changed.
-
-6. In this repository: replace the anki deb in `local-debs/` and set the Anki version in
-   `versionName` in `app/build.gradle` (the update workflow does both when the release exists).
+   python-markupsafe and python-orjson are rebuilt as well; attach them too, since the release
+   is where the runtime build finds them.
 
 ### Build times
 

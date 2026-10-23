@@ -2,9 +2,10 @@
 """Resolve and download the runtime's .deb closure from Termux apt repositories.
 
 Local .deb files (e.g. packages from krmanik/termux-packages that are not in the
-official repos yet) take precedence over repository packages of the same name.
+official repos yet) take precedence over repository packages of the same name,
+and over those in an earlier --local directory.
 
-  tools/fetch_debs.py --roots anki,jwm,st,... --local . --out build/debs
+  tools/fetch_debs.py --roots anki,jwm,st,... --local build/anki-debs --local local-debs --out build/debs
 """
 import argparse
 import hashlib
@@ -61,7 +62,8 @@ def dep_names(fields):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--roots", required=True, help="comma separated package names")
-    ap.add_argument("--local", default=None, help="directory with local .deb files that override the repos")
+    ap.add_argument("--local", action="append", default=[],
+                    help="directory with local .deb files that override the repos (repeatable; skipped if missing)")
     ap.add_argument("--skip", default="", help="comma separated packages not to download (pruned anyway)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--list", help="write 'package<TAB>version' of the closure here")
@@ -75,10 +77,12 @@ def main():
             pkgs.setdefault(name, fields)
 
     local = {}
-    if a.local:
-        for f in sorted(os.listdir(a.local)):
+    for local_dir in a.local:
+        if not os.path.isdir(local_dir):
+            continue
+        for f in sorted(os.listdir(local_dir)):
             if f.endswith(".deb"):
-                path = os.path.join(a.local, f)
+                path = os.path.join(local_dir, f)
                 members = dict(ar_members(path))
                 control = next(v for k, v in members.items() if k.startswith("control.tar"))
                 name = control_field(control, "Package")

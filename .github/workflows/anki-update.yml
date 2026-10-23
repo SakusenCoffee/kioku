@@ -3,9 +3,9 @@
 #
 # - iOS and native Android: shared/versions.env (ANKI_TAG, ANKI_PY_VERSION)
 #   and the pinned dependencies in shared/requirements.txt.
-# - Termux: the anki .deb in termux/local-debs/, downloaded from the
-#   krmanik/termux-packages release of that version when it exists (otherwise
-#   the PR says so), and the default versionName.
+# - Termux: the default versionName. Its build downloads the anki .deb from the
+#   krmanik/termux-packages release anki-<ANKI_TAG>; the PR says when that
+#   release does not exist yet (run that repository's anki workflow).
 #
 # The PR description reports what changed in the parts of Anki that Kioku
 # replaces at runtime or patches (shared/tools/anki_drift.py).
@@ -109,10 +109,7 @@ jobs:
           CURRENT: ${{ steps.anki.outputs.current }}
         run: |
           sed -i "s/anki$CURRENT'/anki$TAG'/" termux/app/build.gradle
-          deb="anki_${TAG}_aarch64.deb"
-          if gh release download -R krmanik/termux-packages --pattern "$deb" -D "$RUNNER_TEMP" 2>/dev/null; then
-            git rm -q "termux/local-debs/anki_${CURRENT}_aarch64.deb" || true
-            cp "$RUNNER_TEMP/$deb" termux/local-debs/
+          if gh release view "anki-$TAG" -R krmanik/termux-packages >/dev/null 2>&1; then
             echo "deb=found" >> "$GITHUB_OUTPUT"
           else
             echo "deb=missing" >> "$GITHUB_OUTPUT"
@@ -140,9 +137,9 @@ jobs:
           DRIFT_CLEAN: ${{ steps.drift.outputs.clean }}
         run: |
           if [ "$DEB" = found ]; then
-            termux="- [x] Termux: \`anki_${TAG}_aarch64.deb\` from krmanik/termux-packages"
+            termux="- [x] Termux: release [anki-$TAG](https://github.com/krmanik/termux-packages/releases/tag/anki-$TAG) exists"
           else
-            termux="- [ ] Termux: build \`anki_${TAG}_aarch64.deb\` (krmanik/termux-packages) and add it to termux/local-debs/"
+            termux="- [ ] Termux: run the [anki workflow](https://github.com/krmanik/termux-packages/actions/workflows/anki.yml) of krmanik/termux-packages for $TAG, then rerun the Termux APK build"
           fi
           {
             echo "Anki [$TAG](https://github.com/ankitects/anki/releases/tag/$TAG) is out (was $CURRENT)."

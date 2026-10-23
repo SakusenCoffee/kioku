@@ -5,8 +5,9 @@
 #
 # APP_ID and ROOTFS_DIR default to ankideskApplicationId and ankideskRootfsDir
 # from gradle.properties. Packages come from the official Termux repositories,
-# plus local .debs in local-debs/ (anki, python-markupsafe, python-orjson from
-# krmanik/termux-packages) which take precedence. For packages rebuilt for
+# plus the .debs of the krmanik/termux-packages release anki-<ANKI_TAG> (anki,
+# python-markupsafe, python-orjson; tools/fetch_anki_debs.py) and any .debs in
+# local-debs/, which take precedence in that order. For packages rebuilt for
 # APP_ID by tools/build-termux-packages.sh, put them in local-debs/ and run
 # with SOURCE_PACKAGE=APP_ID and ROOTFS_DIR=files.
 set -eu
@@ -23,7 +24,8 @@ ROOTS="anki,jwm,st,dash,termux-exec,xkeyboard-config,ca-certificates,resolv-conf
 SKIP="perl,libllvm,mesa-vulkan-icd-swrast,gstreamer,gst-plugins-base,gst-plugins-bad,gst-libav,make,make-guile"
 
 echo "== packages for $APP_ID (/data/data/$APP_ID/$ROOTFS_DIR/usr)"
-python3 -I tools/fetch_debs.py --roots "$ROOTS" --local local-debs --skip "$SKIP" \
+python3 -I tools/fetch_anki_debs.py --out build/anki-debs
+python3 -I tools/fetch_debs.py --roots "$ROOTS" --local build/anki-debs --local local-debs --skip "$SKIP" \
 	--out build/debs --list build/debs-closure.tsv
 # Package name the .debs were built for (com.termux for the official repos).
 python3 -I tools/debs_to_prefix.py --package "${SOURCE_PACKAGE:-com.termux}" --debs build/debs --out build/rootfs-repo

@@ -7,9 +7,6 @@ termux/app/src/main/assets/bootstrap-*.zip
 *.iml
 __pycache__/
 *.deb
-# Packages from krmanik/termux-packages that are not in the Termux repos yet;
-# the release workflow builds the runtime with them.
-!termux/local-debs/*.deb
 .DS_Store
 dist/
 build-testdata/

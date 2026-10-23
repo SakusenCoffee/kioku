@@ -9,6 +9,7 @@ the platforms comes from kioku_platform.
 from __future__ import annotations
 
 import logging
+import types
 
 import kioku_platform as platform
 
@@ -39,6 +40,16 @@ def apply() -> None:
     # main screen (e.g. collapsing a deck) for changes from another window,
     # dims the main screen and waits for a focus change to undo it.
     aqt.utils.current_window.__code__ = _current_window.__code__
+    # Qt sizes a window to at most 2/3 of the screen, which cut tooltips
+    # longer than that off on a phone
+    aqt.utils._kioku_tooltip = types.FunctionType(
+        aqt.utils.tooltip.__code__,
+        aqt.utils.__dict__,
+        "tooltip",
+        aqt.utils.tooltip.__defaults__,
+    )
+    aqt.utils._kioku_fit_tooltip = _fit_tooltip
+    aqt.utils.tooltip.__code__ = _tooltip.__code__
 
     _patch_app()
     _patch_audio()
@@ -109,6 +120,25 @@ def _get_save_file(parent, title, dir_description, key, ext, fname=""):  # type:
     ):
         return None
     return path
+
+
+def _tooltip(msg, period=3000, parent=None, x_offset=0, y_offset=100):  # type: ignore[no-untyped-def]
+    # runs as aqt.utils.tooltip, with aqt.utils' globals
+    _kioku_tooltip(msg, period, parent, x_offset, y_offset)  # type: ignore[name-defined]  # noqa: F821
+    _kioku_fit_tooltip(_tooltipLabel)  # type: ignore[name-defined]  # noqa: F821
+
+
+def _fit_tooltip(label) -> None:  # type: ignore[no-untyped-def]
+    """Full width up to the screen's, wrapped beyond it, kept on the screen."""
+    if label is None or label.screen() is None:
+        return
+    screen = label.screen().availableGeometry()
+    width = min(label.sizeHint().width(), screen.width() - 16)
+    if width < label.sizeHint().width():
+        label.setWordWrap(True)
+    label.resize(width, label.heightForWidth(width) if label.wordWrap() else label.sizeHint().height())
+    x = min(max(label.x(), screen.left() + 8), screen.left() + screen.width() - 8 - width)
+    label.move(x, label.y())
 
 
 def _patch_app() -> None:

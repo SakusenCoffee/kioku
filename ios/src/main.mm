@@ -4,7 +4,9 @@
 // standard library comes from the BeeWare Python.framework.
 
 #import <Foundation/Foundation.h>
+#import <JavaScriptCore/JavaScriptCore.h>
 #include <Python.h>
+#include <sys/resource.h>
 
 extern "C" {
 PyObject *PyInit_sip(void);
@@ -30,8 +32,33 @@ static void append_path(PyConfig *config, NSString *path) {
     if (PyStatus_Exception(status)) fail("module path", status);
 }
 
+// Qt runs main() on a 512 KB stack reserved inside the main thread's stack
+// and lowers RLIMIT_STACK to that size meanwhile; QApplication::exec() then
+// jumps back to UIApplicationMain's frames, below that block. WebKit takes
+// the main thread's stack bounds from RLIMIT_STACK once, when it first sees
+// the thread (our first WKWebView, inside main()), so later it found the
+// stack pointer outside them and stopped the app (JSC::sanitizeStackForVM)
+// on iOS 18 (iOS 27 refuses Qt's lower limit). Raising the limit again
+// doesn't help there, so let WebKit see the thread before Qt starts, while
+// the limit still covers the whole stack.
+static rlim_t stack_limit_at_start;
+
+__attribute__((constructor)) static void set_webkit_stack_bounds(void) {
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_STACK, &limit) == 0)
+        stack_limit_at_start = limit.rlim_cur;
+    @autoreleasepool {
+        [[[JSVirtualMachine alloc] init] release];
+    }
+}
+
 int main(int argc, char *argv[]) {
     @autoreleasepool {
+        struct rlimit limit;
+        if (getrlimit(RLIMIT_STACK, &limit) == 0 && limit.rlim_cur != stack_limit_at_start)
+            NSLog(@"Kioku: RLIMIT_STACK %llu at start, %llu in main()",
+                  (unsigned long long)stack_limit_at_start, (unsigned long long)limit.rlim_cur);
+
         NSString *res = [[NSBundle mainBundle] resourcePath];
 
         PyImport_AppendInittab("PyQt6.sip", PyInit_sip);

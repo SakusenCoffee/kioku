@@ -419,17 +419,22 @@ made remotely, battery prompt, locks, Power off). Fixes in
 ## VoiceOver / first-run crash on iPadOS (2026-10-23)
 
 GitHub issue: Kioku closed right after confirming the language on first
-run (iPad, iPadOS 18.7.8, LiveContainer and SideStore). Fix in
-[fixes.md](fixes.md#runtime-platform) (Qt's iOS plugin, `qios-a11y-destroyed-object.patch`).
+run (iPad, iPadOS 18.7.8, LiveContainer and SideStore). Two causes, fixes in
+[fixes.md](fixes.md#runtime-platform): Qt's iOS accessibility (`qios-a11y-destroyed-object.patch`),
+then, on iOS 18 only, WebKit's stack bounds for the main thread (`ios/src/main.mm`).
 
 | Test | Result |
 | --- | --- |
 | BrowserStack App Live, iPad (iPadOS 18), dev-signed IPA, first run | ❌ before the fix: closed after Yes; same log as the issue |
 | BrowserStack App Live, iPhone, first run | ❌ before the fix: same |
+| BrowserStack iPad (iPad15,6, iPadOS 18.6), accessibility fix only | ❌ language step passed, then `JSC::sanitizeStackForVM` (`Kioku-2026-10-23-033444.ips`): the iOS 18 stack-bounds crash |
+| Same, `RLIMIT_STACK` raised again in `main()` (build 2) | ❌ same crash (`Kioku-2026-10-23-034541.ips`); its registers show WebKit's bounds still 512 KB |
+| Same, `JSVirtualMachine` created before Qt starts (build 3) | ✅ first run through to the main window, no crash report |
 | iPhone 15 Pro Max (iOS 27.0.1), fresh install, VoiceOver off | ✅ (no accessibility events at all) |
 | Same, VoiceOver on, before the fix | ❌ `Kioku-2026-10-23-082234.ips`: `EXC_BAD_ACCESS` in `QAccessibleButton::role` from `notifyAccessibilityUpdate` while the "Are you sure?" box is destroyed |
 | Same, VoiceOver on, patched `libqios.a`, tapped by hand | ✅ language chosen, main window, no crash report |
 | Same again from a fresh install, scripted (devcmd), VoiceOver checked on before each step | ✅ OK → "Are you sure?" → Yes → main window; Preferences opened and closed; a message box shown and closed with OK; 53 accessibility events, no new crash report |
+| iPhone (iOS 27.0.1), build 3 | ✅ starts, deck browser; a `evalWithCallback` round trip through the main web view returns its result. `RLIMIT_STACK` there is 1,032,192 (whole stack) and lowering it fails with `EINVAL`, which is why iOS 27 never crashed |
 | "My Mac (Designed for iPad)" | not usable for this: builds, but a development-signed iOS app can't be launched from the command line (Gatekeeper "damaged", or "Terminated due to code signing error" under lldb); only Xcode's Run does |
 
 The patched build exports the same symbols as Qt's object, and the linked

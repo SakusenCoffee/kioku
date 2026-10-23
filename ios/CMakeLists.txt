@@ -58,7 +58,7 @@ target_link_libraries(Kioku PRIVATE
     ${RUST_LIBS}
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg
     "-F${PYTHON_SLICE}" "-framework Python"
-    "-framework WebKit" "-framework UIKit" "-framework Security"
+    "-framework WebKit" "-framework JavaScriptCore" "-framework UIKit" "-framework Security"
     "-framework SystemConfiguration" "-framework CoreFoundation"
     "-framework AVFoundation"
     iconv z resolv

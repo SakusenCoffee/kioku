@@ -1,12 +1,13 @@
 """Start Anki with defaults suited to a phone.
 
-Anki reads its UI scale, video driver and update-check flag from the profile
+Anki reads its UI scale and video driver from the profile
 metadata, overriding any environment variable, so patch the ProfileManager
 accessors before Anki starts. The UI scale only changes the default; a value
 set later in Preferences still wins.
 """
 
 import os
+import subprocess
 import sys
 
 
@@ -72,11 +73,6 @@ def ui_scale(self: ProfileManager) -> float:
     return max(self.meta.get("uiScale", DEFAULT_SCALE), 1)
 
 
-def check_for_updates(self: ProfileManager) -> bool:
-    # Updates ship with the Android app, not through Anki's own updater.
-    return False
-
-
 def video_driver(self: ProfileManager) -> VideoDriver:
     # No OpenGL stack is bundled.
     return VideoDriver.Software
@@ -101,19 +97,39 @@ def setup_meta(self: ProfileManager):  # type: ignore[no-untyped-def]
 
 
 ProfileManager.uiScale = ui_scale
-ProfileManager.check_for_updates = check_for_updates
 ProfileManager.video_driver = video_driver
 ProfileManager.setupMeta = setup_meta
 
 import aqt  # noqa: E402
+import aqt.update  # noqa: E402
+import aqt.utils  # noqa: E402
 from aqt import gui_hooks  # noqa: E402
+from aqt.qt import QDesktopServices, QObject, QUrl, pyqtSlot  # noqa: E402
+
+# Anki's update prompts offer desktop Anki's download page (the check at
+# startup) or its installer (Tools > Check for Updates): Yes opens Kioku's
+# releases instead, which bring the next Anki.
+KIOKU_RELEASES = "https://github.com/krmanik/kioku/releases/latest"
+aqt.appWebsiteDownloadSection = KIOKU_RELEASES
+aqt.update._download_github_update_and_install = lambda _release: aqt.utils.openLink(KIOKU_RELEASES)
+
+
+class UrlOpener(QObject):
+    # Qt finds no launcher for web links without a desktop environment, so
+    # openLink() did nothing; xdg-open (rootfs-overlay/bin) hands them to Android.
+    @pyqtSlot(QUrl)
+    def open(self, url: QUrl) -> None:
+        subprocess.Popen(["xdg-open", url.toString()])
+
+
+url_opener = UrlOpener()
+for scheme in ("http", "https"):
+    QDesktopServices.setUrlHandler(scheme, url_opener, "open")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ankidesk_mobile  # noqa: E402
 
 if REMOTE:
-    import aqt.utils  # noqa: E402
-
     # window sizes, splitters and table columns: the remote screen's own, so
     # each screen keeps what suits it
     _qt_state_key = aqt.utils._qt_state_key

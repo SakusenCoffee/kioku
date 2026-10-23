@@ -15,6 +15,9 @@ import kioku_platform as platform
 
 logger = logging.getLogger("kioku.patches")
 
+# Where Anki's update prompts send the user
+KIOKU_RELEASES = "https://github.com/krmanik/kioku/releases/latest"
+
 
 def apply() -> None:
     import aqt
@@ -350,25 +353,17 @@ def _patch_splitters() -> None:
 
 
 def _patch_update_check() -> None:
-    """Anki's update check announces desktop releases, which Kioku users
-    can't install: Kioku updates bring the next Anki."""
+    """Anki's update prompts offer desktop Anki's download page (the check at
+    startup) or its installer (Tools › Check for Updates), which don't work on
+    a phone: Yes opens Kioku's releases instead, which bring the next Anki."""
     import aqt
-    import aqt.main
-    import aqt.preferences
-    from aqt import gui_hooks
+    import aqt.update
+    import aqt.utils
 
-    aqt.main.AnkiQt.setup_auto_update = lambda self, _log: None
-    gui_hooks.main_window_did_init.append(
-        lambda: aqt.mw.form.action_check_for_updates.setVisible(False)
+    aqt.appWebsiteDownloadSection = KIOKU_RELEASES
+    aqt.update._download_github_update_and_install = lambda _release: aqt.utils.openLink(
+        KIOKU_RELEASES
     )
-
-    original_init = aqt.preferences.Preferences.__init__
-
-    def init(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        original_init(self, *args, **kwargs)
-        self.form.check_for_updates.setVisible(False)
-
-    aqt.preferences.Preferences.__init__ = init
 
 
 def _patch_audio() -> None:

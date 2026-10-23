@@ -1,5 +1,6 @@
 package io.ankidesk;
 
+import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -7,6 +8,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
 import android.util.Log;
@@ -94,6 +96,19 @@ final class AndroidBridge {
                     case "phone-apps":
                         start(ctx, new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
                         break;
+                    case "remote/on":
+                        AnkiService.setRemote(ctx, true);
+                        writeBatteryState(ctx);
+                        break;
+                    case "remote/off":
+                        AnkiService.setRemote(ctx, false);
+                        break;
+                    case "battery":
+                        openBatterySettings(ctx);
+                        break;
+                    case "battery/state":
+                        writeBatteryState(ctx);
+                        break;
                     default:
                         Log.w(TAG, "Unknown request " + request);
                 }
@@ -150,6 +165,50 @@ final class AndroidBridge {
                     "1".equals(mode) ? "trackpad" : "touch");
         } catch (IOException e) {
             Log.w(TAG, "Cannot save touch mode", e);
+        }
+    }
+
+    /**
+     * Lets Kioku run without Android's battery limits (Doze cuts the network
+     * of a battery-optimised app with the screen off, which ends a remote
+     * session). Asks directly; if already allowed, opens the list to undo it.
+     */
+    @SuppressLint("BatteryLife")
+    private static void openBatterySettings(Context ctx) {
+        PowerManager pm = ctx.getSystemService(PowerManager.class);
+        // the answer comes from Android's dialog or settings: look for it
+        // for a minute, so the Remote page shows it
+        boolean before = pm.isIgnoringBatteryOptimizations(ctx.getPackageName());
+        boolean[] written = {false};
+        for (int i = 1; i <= 30; i++) {
+            main.postDelayed(() -> {
+                if (!written[0] && pm.isIgnoringBatteryOptimizations(ctx.getPackageName()) != before) {
+                    written[0] = true;
+                    writeBatteryState(ctx);
+                }
+            }, i * 2000L);
+        }
+        if (before) {
+            start(ctx, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+            return;
+        }
+        try {
+            start(ctx, new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.fromParts("package", ctx.getPackageName(), null)));
+        } catch (ActivityNotFoundException e) {
+            start(ctx, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        }
+    }
+
+    /** ~/.config/kioku/battery-unrestricted: "yes" or "no", for the Remote page. */
+    static void writeBatteryState(Context ctx) {
+        PowerManager pm = ctx.getSystemService(PowerManager.class);
+        boolean free = pm.isIgnoringBatteryOptimizations(ctx.getPackageName());
+        try {
+            PickFileActivity.writeAtomically(new File(new Prefix(ctx).home, ".config/kioku"),
+                    "battery-unrestricted", free ? "yes" : "no");
+        } catch (IOException e) {
+            Log.w(TAG, "Cannot save the battery state", e);
         }
     }
 

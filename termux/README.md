@@ -46,6 +46,8 @@ No Termux, no Termux:X11, no setup. (Kioku, 記憶, is Japanese for "memory".)
   image viewer and more, or anything from the Termux repositories, only when you want them.
 - **Works with your phone's files.** Import `.apkg`/`.colpkg` decks from Downloads, open them
   from other apps or share them to Kioku, and optionally link your phone's folders.
+- **Remote desktop.** Use Anki from a computer, in a web browser or a VNC viewer, on a
+  desktop-sized screen; over Tailscale by default. See [Remote desktop](docs/remote-desktop.md).
 - **Recovers by itself.** If something goes wrong at start-up: Retry, Safe mode (Anki without
   add-ons), Repair runtime (your decks are kept) or Share log.
 
@@ -78,6 +80,7 @@ Sync with AnkiWeb (Anki → Sync), or export a `.colpkg` from Anki on your compu
 
 - [How it works](docs/how-it-works.md): start-up, where your data lives, updates, phone files
 - [The desktop](docs/desktop.md): apps, window manager, touch and keyboard handling
+- [Remote desktop](docs/remote-desktop.md): Anki from a computer's browser or VNC viewer
 - [Building](docs/building.md): local builds, GitHub Actions releases and signing, the runtime
 - [Distribution and licenses](docs/distribution.md)
 

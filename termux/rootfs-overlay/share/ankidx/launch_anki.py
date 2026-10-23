@@ -62,9 +62,13 @@ provide_opengl_placeholders()
 from aqt.profiles import ProfileManager, VideoDriver  # noqa: E402
 
 DEFAULT_SCALE = float(os.environ.get("ANKIDX_SCALE", "2.0"))
+# on the remote desktop's screen (ankidesk_remote.py): a computer's monitor
+REMOTE = os.environ.get("ANKIDX_REMOTE") == "1"
 
 
 def ui_scale(self: ProfileManager) -> float:
+    if REMOTE:
+        return DEFAULT_SCALE
     return max(self.meta.get("uiScale", DEFAULT_SCALE), 1)
 
 
@@ -95,7 +99,24 @@ from aqt import gui_hooks  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ankidesk_mobile  # noqa: E402
 
-ankidesk_mobile.setup()
+if REMOTE:
+    import aqt.utils  # noqa: E402
+
+    # window sizes, splitters and table columns: the remote screen's own, so
+    # each screen keeps what suits it
+    _qt_state_key = aqt.utils._qt_state_key
+    aqt.utils._qt_state_key = lambda kind, key: "kioku_remote_" + _qt_state_key(kind, key)
+
+    def maximize_first_time() -> None:
+        # after loadProfile() restored the window: with no size saved for the
+        # remote screen yet, it has the phone's, tiny on a monitor
+        key = aqt.utils._qt_state_key(aqt.utils._QtStateKeyKind.GEOMETRY, "mainWindow")
+        if aqt.mw.pm.profile is not None and key not in aqt.mw.pm.profile:
+            aqt.mw.showMaximized()
+
+    gui_hooks.profile_did_open.append(maximize_first_time)
+else:
+    ankidesk_mobile.setup()
 gui_hooks.main_window_did_init.append(signal_ready)
 
 aqt.run()

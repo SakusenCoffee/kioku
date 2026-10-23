@@ -130,3 +130,16 @@ User guide: [sync-server.md](sync-server.md). Code: `shared/python/kioku/`
 | AnkiDroid's answers lost after Kioku reopened the collection while AnkiDroid had it | Anki's backup drops the collection's lock (testing.md, "AnkiDroid's collection") | not fixable from Kioku: the mode is listed as "not available", tapping it explains why; a profile saved in it opens its own collection |
 | Kioku's changes never reached AnkiDroid unless synced by hand | Anki syncs automatically on profile open/close, and a phone app is backgrounded, not closed | `kioku.switchsync`: a profile that syncs with the phone's server syncs in onPause (normal sync only, waited for up to 400 ms) and with Anki's own sync on return after 2 s; full syncs and errors wait for Anki's dialogs. `kioku.background` decides what the activity waits for |
 | A long message box was drawn squashed | taller than the screen after `kioku.windows` fits it | long explanations use `showText` (scrollable) |
+
+## Remote desktop (Termux variant)
+
+Guide and results: [termux/docs/remote-desktop.md](../termux/docs/remote-desktop.md).
+
+| Problem | Cause | Fix |
+| --- | --- | --- |
+| x11vnc listened, then the first viewer got "connection closed" | `shmget: Permission denied`: Android has no SysV shared memory for apps, and x11vnc exits after binding its port | `-noshm`; start() also checks it still runs 2 s after listening |
+| noVNC connected to its own page's port (`ws://host:6080/vnc.html`) | noVNC 1.7 uses a `port` setting only together with a `host`, and the host differs per connection | `ankidesk_novnc.py` makes `defaults.json` per request from the Host header; `/` opens `vnc.html` with the query kept |
+| Back on the phone, Anki's window had the remote screen's size | Anki saves window sizes in the profile under one key per window | on the remote screen, `launch_anki.py` prefixes Anki's state keys with `kioku_remote_`; the first time there, Anki opens maximized |
+| "Run without battery limits" still said "Recommended" after allowing it | the state file was written only at session start and Turn on | the bridge re-reads it every 2 s for a minute after opening Android's prompt |
+| Power off didn't end the session (an existing bug) | Qt 6's `QApplication.quit()` is cancelled when a window refuses to close, and the desktop shell always refuses | `QApplication.exit(0)`; with the remote screen on, Anki there is closed first (the session's end gives it 3 s) |
+| The session's wake lock ends after 10 minutes | `acquire(10 min)` | the remote session holds its own wake lock and a Wi-Fi lock until it is turned off |

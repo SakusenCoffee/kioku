@@ -6,5 +6,6 @@
     <string name="setup_failed">Setup failed: %1$s</string>
     <string name="notification_running">Kioku desktop is running</string>
     <string name="notification_stop">Stop</string>
+    <string name="notification_remote">Remote desktop on: Anki is on the remote screen</string>
     <string name="import_into_anki">Import into Kioku (Anki)</string>
 </resources>

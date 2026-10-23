@@ -10,6 +10,7 @@ Pages (bottom bar in portrait, side rail in landscape):
   Apps      clock, search, Anki, Terminal and every installed desktop app
   Software  recommended apps and every Termux package: install / open / remove
   Settings  wallpaper, touch mode, keyboard, deck import, phone storage, power
+  Remote    the remote desktop (ankidesk_remote.py), opened from Settings
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ from PyQt6.QtWidgets import (  # noqa: E402
 import ankidesk_keyboard as keyboard  # noqa: E402
 import ankidesk_menu as menu  # noqa: E402
 import ankidesk_pkg as pkg  # noqa: E402
+import ankidesk_remote as remote  # noqa: E402
 import ankidesk_theme as theme  # noqa: E402
 import ankidesk_touch as touch  # noqa: E402
 import ankidesk_x11 as x11  # noqa: E402
@@ -85,6 +87,9 @@ ANKI_KEY = os.environ.get("ANKI_SINGLE_INSTANCE_KEY", "kioku-anki")
 PICKED_WALLPAPER = os.path.join(theme.CONFIG_DIR, "picked-wallpaper")
 PICKED_DECK = os.path.join(theme.CONFIG_DIR, "picked-deck")
 TOUCH_MODE = os.path.join(theme.CONFIG_DIR, "touch-mode")
+BATTERY_STATE = os.path.join(theme.CONFIG_DIR, "battery-unrestricted")
+REMOTE_PAGE = 3
+REMOTE_GRADIENT = ("#93C5FD", "#4F46E5")
 STORAGE_STATE = menu.STORAGE_STATE
 STORAGE_DIR = menu.STORAGE_DIR
 
@@ -455,7 +460,9 @@ class Shell(QWidget):
         self.home = QWidget()
         self.software = QWidget()
         self.settings = QWidget()
-        for page in (self.home, self.software, self.settings):
+        self.remote_page = QWidget()
+        self.remote_busy = False
+        for page in (self.home, self.software, self.settings, self.remote_page):
             self.pages.addWidget(self._scroll(page))
 
         self.layout_box = QBoxLayout(QBoxLayout.Direction.TopToBottom, self)
@@ -573,6 +580,10 @@ class Shell(QWidget):
     def show_page(self, i: int) -> None:
         if i == 2 and self.pages.currentIndex() != 2:
             self._build_settings()  # touch mode or storage may have changed
+        if i == REMOTE_PAGE:
+            # the battery setting may have changed in Android's settings
+            menu.android_request("ankidesk:battery/state")
+            self._build_remote()
         self.pages.setCurrentIndex(i)
         for j, b in enumerate(self.nav_buttons):
             b.setChecked(i == j)
@@ -605,6 +616,13 @@ class Shell(QWidget):
             layout.addWidget(w)
         self._tick()
         layout.addSpacing(dp(18))
+        if remote.is_active():
+            frame, box = card()
+            box.addWidget(self._row("monitor", REMOTE_GRADIENT, "Remote session active",
+                                    lambda: self.show_page(REMOTE_PAGE),
+                                    "Anki is on the remote screen. Tap to see the address or turn it off."))
+            layout.addWidget(frame)
+            layout.addSpacing(dp(14))
 
         box, _, self.search = search_field("Search apps", "searchbox")
         self.search.textChanged.connect(self._layout_tiles)
@@ -913,6 +931,11 @@ class Shell(QWidget):
                       "Off: let the Files app and Anki open your phone's folders"),
             self._row("folder", ("#7DD3FC", "#0284C7"), "Open Kioku's files in Android", "ankidesk:files"),
         ])
+        self._group(layout, "REMOTE DESKTOP", [
+            self._row("monitor", REMOTE_GRADIENT, "Remote desktop", lambda: self.show_page(REMOTE_PAGE),
+                      "On: Anki is on the remote screen" if remote.is_active() else
+                      "Use Anki from a computer, in a web browser or a VNC viewer"),
+        ])
         self._group(layout, "DEVICE", [
             self._row("monitor", ("#FDBA74", "#EA580C"), "Display", "ankidesk:display-settings"),
             self._row("drive", ("#CBD5E1", "#64748B"), "Storage and app info", "ankidesk:app-settings"),
@@ -1038,6 +1061,8 @@ class Shell(QWidget):
                 self._import_into_anki(path)
         if self.pages.currentIndex() == 2:
             self._build_settings()  # touch mode, storage
+        elif self.pages.currentIndex() == REMOTE_PAGE and not self.remote_busy:
+            self._build_remote()  # the battery setting
 
     # --- anki and storage -------------------------------------------------------
 
@@ -1098,6 +1123,20 @@ class Shell(QWidget):
                        "Power off", self._power_off, kind="danger")
 
     def _power_off(self) -> None:
+        if remote.is_active():
+            # Anki on the remote screen first: the session's end gives it only
+            # a few seconds
+            def done(result, error: str) -> None:
+                if error:
+                    self.sheet.ask(theme.app_tile("power", dp(52), ("#FCA5A5", "#DC2626")),
+                                   "Couldn't power off", error, "OK")
+                else:
+                    menu.android_request("ankidesk:remote/off")
+                    self._power_off()
+
+            self.show_page(REMOTE_PAGE)
+            self._run_remote(remote.end, done)
+            return
         # Ask every window to close (Anki saves and syncs on close), then end
         # the session once Anki is gone or after a grace period.
         for w in x11.find(lambda w: w.wm_class != "ankidesk-shell"):
@@ -1108,9 +1147,148 @@ class Shell(QWidget):
             if x11.find(lambda w: w.wm_class.lower() == "anki") and time.monotonic() < deadline:
                 QTimer.singleShot(500, check)
             else:
-                QApplication.quit()
+                # not quit(): Qt 6 cancels it when a window refuses to close,
+                # and this one always does (closeEvent)
+                QApplication.exit(0)
 
         QTimer.singleShot(500, check)
+
+    # --- remote desktop -------------------------------------------------------
+
+    def _build_remote(self) -> None:
+        layout = self._clear(self.remote_page)
+        self._header(layout, "Remote desktop",
+                     "Anki on a desktop-sized screen, used from a computer: a web browser or a "
+                     "VNC viewer. The phone does the work, so keep it charged and connected.")
+        self.remote_progress = label("", "dim", wrap=True)
+        self.remote_progress.setVisible(self.remote_busy)
+        layout.addWidget(self.remote_progress)
+        if remote.is_active():
+            self._build_remote_active(layout)
+        else:
+            self._build_remote_off(layout)
+        battery = read_state(BATTERY_STATE, "no") == "yes"
+        self._group(layout, "PHONE", [
+            self._row("power", ("#86EFAC", "#16A34A"), "Run without battery limits", "ankidesk:battery",
+                      "Allowed: the session keeps going with the screen off" if battery else
+                      "Recommended: else Android may cut the network once the screen is off"),
+        ])
+        layout.addStretch(1)
+        no_focus(self.remote_page)
+
+    def _build_remote_active(self, layout: QVBoxLayout) -> None:
+        info = remote.state()
+        frame, box = card()
+        box.setContentsMargins(dp(16), dp(16), dp(16), dp(16))
+        box.setSpacing(dp(6))
+        box.addWidget(label("Remote session active", "name"))
+        box.addWidget(label(f"Anki is on the remote screen ({info.get('resolution', '')}); it comes "
+                            "back here when you turn this off.", "dim", wrap=True))
+        for who, address in info.get("addresses", []):
+            box.addSpacing(dp(4))
+            box.addWidget(label(who, "dim"))
+            text = label(address, wrap=True)
+            text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            box.addWidget(text)
+        box.addSpacing(dp(4))
+        box.addWidget(label("Password", "dim"))
+        box.addWidget(label(info.get("password", "")))
+        box.addSpacing(dp(10))
+        off = QPushButton("Turn off")
+        off.setObjectName("danger")
+        off.setEnabled(not self.remote_busy)
+        off.clicked.connect(self._remote_off)
+        box.addWidget(off)
+        layout.addWidget(frame)
+        layout.addSpacing(dp(12))
+
+    def _build_remote_off(self, layout: QVBoxLayout) -> None:
+        s = remote.load_settings()
+        on = QPushButton("Turn on")
+        on.setObjectName("primary")
+        on.setEnabled(not self.remote_busy)
+        on.clicked.connect(self._confirm_remote_on)
+        layout.addWidget(on)
+        layout.addSpacing(dp(12))
+        self._group(layout, "LISTEN ON", [
+            self._row("lock", ("#86EFAC", "#16A34A"), "Tailscale", self._set_remote("listen", remote.TAILSCALE),
+                      "Your own devices, from anywhere, encrypted by Tailscale (the Tailscale app "
+                      "must be connected)", checked=s.listen == remote.TAILSCALE),
+            self._row("globe", ("#FDBA74", "#EA580C"), "All networks", self._set_remote("listen", remote.ALL),
+                      "Any device on this Wi-Fi. Not encrypted: only on networks you trust",
+                      checked=s.listen == remote.ALL),
+            self._row("smartphone", ("#CBD5E1", "#64748B"), "This phone only",
+                      self._set_remote("listen", remote.LOCAL),
+                      "For a USB connection (adb forward) or testing", checked=s.listen == remote.LOCAL),
+        ])
+        self._group(layout, "SCREEN SIZE", [
+            self._row("monitor", REMOTE_GRADIENT, size.replace("x", " × "), self._set_remote("resolution", size),
+                      checked=s.resolution == size)
+            for size in remote.RESOLUTIONS
+        ])
+        self._group(layout, "PASSWORD", [
+            self._row("lock", ("#A78BFA", "#6D28D9"), s.password, self._new_remote_password,
+                      f"Tap for a new one. Ports: {s.vnc_port} (VNC), {s.web_port} (web)"),
+        ])
+
+    def _set_remote(self, key: str, value):
+        def apply() -> None:
+            s = remote.load_settings()
+            setattr(s, key, value)
+            remote.save_settings(s)
+            self._build_remote()
+        return apply
+
+    def _new_remote_password(self) -> None:
+        s = remote.load_settings()
+        s.password = remote.new_password()
+        remote.save_settings(s)
+        self._build_remote()
+
+    def _confirm_remote_on(self) -> None:
+        self.sheet.ask(theme.app_tile("monitor", dp(52), REMOTE_GRADIENT), "Turn on the remote desktop?",
+                       "Anki closes here (it saves first) and opens on the remote screen. Then open the "
+                       "address shown on this page on your computer.", "Turn on", self._remote_on)
+
+    def _remote_on(self) -> None:
+        def done(result, error: str) -> None:
+            if not error:
+                menu.android_request("ankidesk:remote/on")
+            self.reload()
+            self._build_remote()
+            if error:
+                self.sheet.ask(theme.app_tile("monitor", dp(52), REMOTE_GRADIENT),
+                               "The remote desktop didn't start", error, "OK")
+
+        self._run_remote(remote.start, done)
+
+    def _remote_off(self) -> None:
+        def done(result, error: str) -> None:
+            if not remote.is_active():
+                menu.android_request("ankidesk:remote/off")
+            self.reload()
+            self._build_remote()
+            if error:
+                self.sheet.ask(theme.app_tile("monitor", dp(52), REMOTE_GRADIENT),
+                               "The remote desktop is still on", error, "OK")
+
+        self._run_remote(remote.stop, done)
+
+    def _run_remote(self, fn: Callable, done: Callable) -> None:
+        if self.remote_busy:
+            return
+        self.remote_busy = True
+        self.show_page(REMOTE_PAGE)
+
+        def finished(result, error: str) -> None:
+            self.remote_busy = False
+            done(result, error)
+
+        def progress(text: str, fraction: float) -> None:
+            self.remote_progress.setText(text)
+            self.remote_progress.show()
+
+        self._run_async(fn, finished, progress)
 
     # --- actions --------------------------------------------------------------
 
@@ -1125,6 +1303,10 @@ class Shell(QWidget):
             self._run(app.exec, app.terminal)
 
     def _open_anki(self) -> None:
+        if remote.is_active():
+            # Anki is on the remote screen
+            self.show_page(REMOTE_PAGE)
+            return
         # Switch to Anki's main window if it is open, otherwise start it.
         wins = x11.find(lambda w: w.wm_class.lower() == "anki")
         main = [w for w in wins if w.title.endswith("- Anki")] or wins
@@ -1380,6 +1562,7 @@ def follow_rotation(shell: Shell) -> None:
 
 def main() -> int:
     global SCALE
+    remote.reset_stale()
     app = QApplication(sys.argv)
     app.setApplicationName("ankidesk-shell")
     screen = app.primaryScreen().geometry()

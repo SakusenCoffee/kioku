@@ -407,3 +407,11 @@ Emulator, profile **ServerTest** (AnkiDroid's media, phone's server):
 | AnkiDroid answers a card and syncs, back to Kioku | ✅ Kioku's sync on return brought the review in |
 | Profile saved as "AnkiDroid's collection" opens | ✅ its own collection, message says why |
 | Tapping "AnkiDroid's collection (not available)" | ✅ the explanation (a scrollable window: a QMessageBox this tall was sometimes drawn squashed) |
+
+## Remote desktop, Termux variant (2026-10-23)
+
+Results in [termux/docs/remote-desktop.md](../termux/docs/remote-desktop.md#tested):
+19 tests on the phone (`termux/tools/test_on_device.sh`) and the whole flow on the
+emulator (VNC viewer and noVNC in Chrome, Anki moved there and back with a change
+made remotely, battery prompt, locks, Power off). Fixes in
+[fixes.md](fixes.md#remote-desktop-termux-variant).

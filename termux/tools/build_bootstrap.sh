@@ -17,7 +17,8 @@ ROOTFS_DIR="${2:-$(sed -n 's/^ankideskRootfsDir=//p' gradle.properties)}"
 PYVER="${PYVER:-3.14}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/cert.pem}"
 
-ROOTS="anki,jwm,st,dash,termux-exec,xkeyboard-config,ca-certificates,resolv-conf,python-rpds-py"
+# xorg-server-xvfb, x11vnc: the remote desktop (ankidesk_remote.py), about 8 MB
+ROOTS="anki,jwm,st,dash,termux-exec,xkeyboard-config,ca-certificates,resolv-conf,python-rpds-py,xorg-server-xvfb,x11vnc"
 # Pulled in by dependencies but never used at runtime; pruned anyway.
 SKIP="perl,libllvm,mesa-vulkan-icd-swrast,gstreamer,gst-plugins-base,gst-plugins-bad,gst-libav,make,make-guile"
 
@@ -31,11 +32,13 @@ echo "== PyQt6.sip and pure-Python dependencies"
 tools/build_pyqt6_sip.sh build/rootfs-repo/usr "$PYVER" build/pyqt6-sip-overlay
 tools/fetch_python_deps.sh "$PYVER" build/python-deps
 
+tools/fetch_novnc.sh build/novnc-overlay
+
 # The app installer treats these as already installed.
 mkdir -p build/base-overlay/var/lib/ankidesk
 cp build/debs-closure.tsv build/base-overlay/var/lib/ankidesk/base-packages.tsv
 
 echo "== bootstrap"
 python3 -I tools/build_rootfs.py --src build/rootfs-repo/usr --owners build/rootfs-repo/file-owners.tsv \
-	--extra rootfs-overlay --extra build/python-deps --extra build/pyqt6-sip-overlay --extra build/base-overlay \
+	--extra rootfs-overlay --extra build/python-deps --extra build/pyqt6-sip-overlay --extra build/base-overlay --extra build/novnc-overlay \
 	--package "$APP_ID" --rootfs-dir "$ROOTFS_DIR" --stage build/rootfs-stage --out app/src/main/assets/bootstrap-aarch64.zip

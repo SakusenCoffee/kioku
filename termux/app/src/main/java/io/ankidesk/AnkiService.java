@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.FileObserver;
 import android.os.IBinder;
+import android.net.wifi.WifiManager;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.system.Os;
@@ -54,6 +55,13 @@ public class AnkiService extends Service {
     private static final int MIN_LOGICAL_WIDTH = 480;
     private static final long RESTART_WINDOW_MS = 3 * 60_000;
 
+    // the remote desktop (ankidesk_remote.py): the CPU and Wi-Fi stay awake
+    // with the screen off until it is turned off
+    private static volatile boolean remote;
+    private static PowerManager.WakeLock remoteWakeLock;
+    private static WifiManager.WifiLock remoteWifiLock;
+    private static AnkiService instance;
+
     private Prefix prefix;
     private Process xserver;
     private Process session;
@@ -70,6 +78,7 @@ public class AnkiService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        instance = this;
         updateNotification();
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             stopRequested = true;
@@ -145,7 +154,10 @@ public class AnkiService extends Service {
             prefix.tmp.mkdirs();
             prefix.home.mkdirs();
             AndroidBridge.writeTouchMode(this, null);
+            AndroidBridge.writeBatteryState(this);
             killEverything();
+            // a remote session doesn't survive a restart (ankidesk_remote.reset_stale)
+            setRemote(this, false);
             ready.delete();
 
             Session.set(Session.State.STARTING, "Starting display…");
@@ -292,6 +304,34 @@ public class AnkiService extends Service {
         wakeLock.acquire(10 * 60 * 1000L);
     }
 
+    static synchronized void setRemote(android.content.Context ctx, boolean on) {
+        remote = on;
+        android.content.Context app = ctx.getApplicationContext();
+        if (on) {
+            if (remoteWakeLock == null) {
+                remoteWakeLock = app.getSystemService(PowerManager.class)
+                        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ankidesk:remote");
+                remoteWakeLock.setReferenceCounted(false);
+                WifiManager wifi = app.getSystemService(WifiManager.class);
+                if (wifi != null) {
+                    remoteWifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "ankidesk:remote");
+                    remoteWifiLock.setReferenceCounted(false);
+                }
+            }
+            remoteWakeLock.acquire();
+            if (remoteWifiLock != null)
+                remoteWifiLock.acquire();
+        } else {
+            if (remoteWakeLock != null && remoteWakeLock.isHeld())
+                remoteWakeLock.release();
+            if (remoteWifiLock != null && remoteWifiLock.isHeld())
+                remoteWifiLock.release();
+        }
+        AnkiService s = instance;
+        if (s != null)
+            s.updateNotification();
+    }
+
     private void updateNotification() {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (Build.VERSION.SDK_INT >= 26)
@@ -302,6 +342,8 @@ public class AnkiService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1,
                 new Intent(this, AnkiService.class).setAction(ACTION_STOP), piFlags);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
+        if (remote)
+            b.setContentText(getString(R.string.notification_remote));
         Notification n = b.setContentTitle(getString(R.string.notification_running))
                 .setSmallIcon(android.R.drawable.ic_menu_agenda)
                 .setContentIntent(open)
@@ -334,6 +376,7 @@ public class AnkiService extends Service {
             openRequests.stopWatching();
         if (wakeLock != null && wakeLock.isHeld())
             wakeLock.release();
+        setRemote(this, false);
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }

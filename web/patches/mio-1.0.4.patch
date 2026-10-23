@@ -1,0 +1,113 @@
+diff --git src/lib.rs src/lib.rs
+index 9bd2944..d06330b 100644
+--- src/lib.rs
++++ src/lib.rs
+@@ -40,7 +40,7 @@
+ //!
+ //! The available features are described in the [`features`] module.
+ 
+-#[cfg(all(target_family = "wasm", not(target_os = "wasi")))]
++#[cfg(all(target_family = "wasm", not(any(target_os = "wasi", target_os = "emscripten"))))]
+ compile_error!("This wasm target is unsupported by mio. If using Tokio, disable the net feature.");
+ 
+ // macros used internally
+diff --git src/poll.rs src/poll.rs
+index f212661..adaf944 100644
+--- src/poll.rs
++++ src/poll.rs
+@@ -7,6 +7,7 @@
+         target_os = "fuchsia",
+         target_os = "haiku",
+         target_os = "hermit",
++        target_os = "emscripten",
+         target_os = "hurd",
+         target_os = "nto",
+         target_os = "solaris",
+@@ -446,6 +447,7 @@ impl Poll {
+         target_os = "fuchsia",
+         target_os = "haiku",
+         target_os = "hermit",
++        target_os = "emscripten",
+         target_os = "hurd",
+         target_os = "nto",
+         target_os = "solaris",
+@@ -747,6 +749,7 @@ impl fmt::Debug for Registry {
+         target_os = "haiku",
+         target_os = "fuchsia",
+         target_os = "hermit",
++        target_os = "emscripten",
+         target_os = "hurd",
+         target_os = "nto",
+         target_os = "solaris",
+@@ -767,6 +770,7 @@ cfg_os_poll! {
+             target_os = "aix",
+             target_os = "espidf",
+             target_os = "hermit",
++            target_os = "emscripten",
+             target_os = "hurd",
+             target_os = "nto",
+             target_os = "solaris",
+diff --git src/sys/unix/mod.rs src/sys/unix/mod.rs
+index 6c0c885..f0bb5c7 100644
+--- src/sys/unix/mod.rs
++++ src/sys/unix/mod.rs
+@@ -45,6 +45,7 @@ cfg_os_poll! {
+         target_os = "fuchsia",
+         target_os = "haiku",
+         target_os = "hermit",
++        target_os = "emscripten",
+         target_os = "hurd",
+         target_os = "nto",
+         target_os = "solaris",
+@@ -60,6 +61,7 @@ cfg_os_poll! {
+             target_os = "espidf",
+             target_os = "fuchsia",
+             target_os = "hermit",
++            target_os = "emscripten",
+             target_os = "illumos",
+             target_os = "linux",
+         )
+diff --git src/sys/unix/net.rs src/sys/unix/net.rs
+index 76451e9..1f09819 100644
+--- src/sys/unix/net.rs
++++ src/sys/unix/net.rs
+@@ -24,6 +24,7 @@ pub(crate) fn new_socket(domain: libc::c_int, socket_type: libc::c_int) -> io::R
+         target_os = "openbsd",
+         target_os = "solaris",
+         target_os = "hermit",
++        target_os = "emscripten",
+     ))]
+     let socket_type = socket_type | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC;
+     #[cfg(target_os = "nto")]
+diff --git src/sys/unix/pipe.rs src/sys/unix/pipe.rs
+index 0a3be9a..6390f46 100644
+--- src/sys/unix/pipe.rs
++++ src/sys/unix/pipe.rs
+@@ -38,6 +38,7 @@ pub(crate) fn new_raw() -> io::Result<[RawFd; 2]> {
+         target_os = "watchos",
+         target_os = "espidf",
+         target_os = "nto",
++        target_os = "emscripten",
+     ))]
+     unsafe {
+         // For platforms that don't have `pipe2(2)` we need to manually set the
+diff --git src/sys/unix/tcp.rs src/sys/unix/tcp.rs
+index 1d1965d..52060dc 100644
+--- src/sys/unix/tcp.rs
++++ src/sys/unix/tcp.rs
+@@ -101,6 +101,7 @@ pub(crate) fn accept(listener: &net::TcpListener) -> io::Result<(net::TcpStream,
+         target_os = "espidf",
+         target_os = "vita",
+         target_os = "hermit",
++        target_os = "emscripten",
+         target_os = "nto",
+         all(target_arch = "x86", target_os = "android"),
+     ))]
+@@ -122,6 +123,7 @@ pub(crate) fn accept(listener: &net::TcpListener) -> io::Result<(net::TcpStream,
+                 target_os = "espidf",
+                 target_os = "vita",
+                 target_os = "hermit",
++                target_os = "emscripten",
+                 target_os = "nto",
+             ))]
+             syscall!(fcntl(s.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK))?;

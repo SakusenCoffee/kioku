@@ -1,0 +1,65 @@
+diff -ru a/Makefile.pre.in b/Makefile.pre.in
+--- a/Makefile.pre.in	2026-10-23 20:37:07
++++ b/Makefile.pre.in	2026-10-23 20:37:07
+@@ -3103,7 +3103,7 @@
+ 
+ Python/emscripten_trampoline_inner.wasm: $(srcdir)/Python/emscripten_trampoline_inner.c
+ 	# emcc has a path that ends with emsdk/upstream/emscripten/emcc, we're looking for emsdk/upstream/bin/clang.
+-	$$(dirname $$(dirname $(CC)))/bin/clang -o $@ $< -mgc -O2 -Wl,--no-entry -Wl,--import-table -Wl,--import-memory -target wasm32-unknown-unknown -nostdlib
++	: > $@  # kioku: emsdk 4.0.7 clang lacks -mgc; empty module -> JS trampoline
+ 
+ Python/emscripten_trampoline_wasm.c: Python/emscripten_trampoline_inner.wasm
+ 	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/wasm/emscripten/prepare_external_wasm.py $< $@ getWasmTrampolineModule
+diff -ru a/Python/emscripten_syscalls.c b/Python/emscripten_syscalls.c
+--- a/Python/emscripten_syscalls.c	2026-10-23 20:37:08
++++ b/Python/emscripten_syscalls.c	2026-10-23 20:37:08
+@@ -125,7 +125,8 @@
+     };
+ })
+ 
+-__attribute__((constructor)) void _emscripten_promising_main(void) {
++// kioku: not a constructor (its JS needs emsdk >= 4.0.11)
++void _emscripten_promising_main(void) {
+     _emscripten_promising_main_js();
+ }
+ 
+@@ -213,11 +214,8 @@
+ // to get the result.
+ __wasi_errno_t __wasi_fd_read(__wasi_fd_t fd, const __wasi_iovec_t *iovs,
+                               size_t iovs_len, __wasi_size_t *nread) {
+-  __externref_t p = __maybe_fd_read_async(fd, iovs, iovs_len, nread);
+-  if (__builtin_wasm_ref_is_null_extern(p)) {
+-    return __wasi_fd_read_orig(fd, iovs, iovs_len, nread);
+-  }
+-  return __block_for_int(p);
++  // kioku: JSPI async stdin path removed (emsdk 4.0.7 has no externref builtin)
++  return __wasi_fd_read_orig(fd, iovs, iovs_len, nread);
+ }
+ 
+ #include <poll.h>
+@@ -279,11 +277,8 @@
+                    __import_name__("__syscall_poll"), __warn_unused_result__));
+ 
+ int __syscall_poll(intptr_t fds, int nfds, int timeout) {
+-    __externref_t p = __maybe_poll_async(fds, nfds, timeout);
+-    if (__builtin_wasm_ref_is_null_extern(p)) {
+-        return syscall_poll_orig(fds, nfds, timeout);
+-    }
+-    return __block_for_int(p);
++    // kioku: JSPI async poll path removed (emsdk 4.0.7 has no externref builtin)
++    return syscall_poll_orig(fds, nfds, timeout);
+ }
+ 
+ #include <sys/ioctl.h>
+diff -ru a/Tools/wasm/emscripten/__main__.py b/Tools/wasm/emscripten/__main__.py
+--- a/Tools/wasm/emscripten/__main__.py	2026-10-23 20:37:08
++++ b/Tools/wasm/emscripten/__main__.py	2026-10-23 20:37:08
+@@ -268,7 +268,7 @@
+     configure = [
+         "emconfigure",
+         os.path.relpath(CHECKOUT / "configure", working_dir),
+-        "CFLAGS=-DPY_CALL_TRAMPOLINE -sUSE_BZIP2",
++        "CFLAGS=-DPY_CALL_TRAMPOLINE -sUSE_BZIP2 -mreference-types",
+         "PKG_CONFIG=pkg-config",
+         f"--host={HOST_TRIPLE}",
+         f"--build={build_platform()}",

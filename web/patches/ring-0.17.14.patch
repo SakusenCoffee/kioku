@@ -1,0 +1,12 @@
+diff --git src/rand.rs src/rand.rs
+index a451c8f..fe20c93 100644
+--- src/rand.rs
++++ src/rand.rs
+@@ -131,6 +131,7 @@ impl crate::sealed::Sealed for SystemRandom {}
+     target_os = "fuchsia",
+     target_os = "haiku",
+     target_os = "hermit",
++    target_os = "emscripten",
+     target_os = "hurd",
+     target_os = "horizon",
+     target_os = "illumos",

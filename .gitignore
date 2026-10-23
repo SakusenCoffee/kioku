@@ -9,7 +9,7 @@ __pycache__/
 *.deb
 # Packages from krmanik/termux-packages that are not in the Termux repos yet;
 # the release workflow builds the runtime with them.
-!local-debs/*.deb
+!termux/local-debs/*.deb
 .DS_Store
 dist/
 build-testdata/

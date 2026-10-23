@@ -570,3 +570,18 @@ What changed upstream that Kioku depends on: `python3 -I shared/tools/anki_drift
 | Termux: phone scale reaches Qt before the QApplication (`launch_anki.py`'s setupMeta hook): `QT_SCALE_FACTOR`, `pm.uiScale()` and the window's device pixel ratio all 2.25 (the app's scale for 420 dpi), screen 480×1067 logical | ✅ |
 | Termux: Deck Options (web view, fits the width), Add (editor loads, `activeWindow()` is Add, a note added through the dialog and removed again), Statistics (draws) | ✅ |
 | Termux on the Samsung M30s | not tested: not connected |
+
+## Preferences tabs on phones, fresh installs (2026-10-23)
+
+Reported from TestFlight (0.2.2): Preferences' tabs ran past the screen, with two small scroll arrows. The two performance overlays in the same screenshot are the tester's Metal HUD (iOS Settings › Developer › Graphics HUD); iOS draws one per window that renders, so Preferences and the login card each got one. Kioku's Info.plist and launch environment don't turn it on.
+
+The tabs now sit in a strip that scrolls sideways with a swipe (a first try with a drop-down list of the pages was replaced at the user's request).
+
+| Check | Result |
+| --- | --- |
+| Host tests (`shared/tests/run.sh`, `test_tabs.py`: strip above the pages, wider than its view, follows the tabs both ways and scrolls the chosen tab into view, hidden tabs stay hidden, Qt's tabs again when wide enough, one strip after refits) | ✅ 85 passed |
+| iPhone 15 Pro Max (iOS 27.0.1): TestFlight 0.2.2 uninstalled, dev build installed fresh; first run: language list, "Are you sure?", main window on User 1 (`Starting Anki 26.09.3`) | ✅ |
+| Android emulator: fresh install, first run tapped through with adb, main window on User 1. Qt shows "Are you sure?" as Android's own dialog, so clicking the hidden Qt box from a script doesn't answer it | ✅ |
+| Android emulator: Preferences shows the strip without arrow buttons; an adb swipe scrolls it to Backups … Advanced without changing the page; a tap on Experiments shows Experiments | ✅ |
+| iPhone (build installed over, data kept): Preferences shows the strip (824 px of tabs in a 408 px view); choosing Advanced scrolls it to the end | ✅ (chosen from a script; a finger swipe on iOS not tried by me) |
+| Samsung M30s | not tested: not connected |

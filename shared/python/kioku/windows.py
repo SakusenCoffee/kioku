@@ -20,10 +20,12 @@ from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
     QApplication,
     QAbstractScrollArea,
+    QBoxLayout,
     QAbstractSpinBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFrame,
     QHBoxLayout,
     QLayout,
     QLabel,
@@ -31,7 +33,12 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QScroller,
+    QScrollerProperties,
     QSizePolicy,
+    QTabBar,
+    QTabWidget,
     QWidget,
 )
 
@@ -162,6 +169,8 @@ def _fit_children(w: QWidget, avail: QRect) -> None:
             child.setMinimumWidth(0)
         if child.minimumHeight() > avail.height():
             child.setMinimumHeight(0)
+        if isinstance(child, QTabWidget):
+            _fit_tabs(child, narrow)
         if isinstance(child, QComboBox):
             child.setSizeAdjustPolicy(
                 QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
@@ -187,6 +196,96 @@ def _fit_children(w: QWidget, avail: QRect) -> None:
         layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
 
 
+TAB_STRIP = "kiokuTabStrip"
+
+
+class TabStrip(QScrollArea):
+    """A copy of a tab widget's tabs in a strip that scrolls sideways with a
+    swipe. Qt's own tab bar scrolls only with two small arrow buttons, and
+    can't be put in a scroll area: the tab widget places it itself."""
+
+    def __init__(self, tabs: QTabWidget) -> None:
+        super().__init__(tabs.parentWidget())
+        self.setObjectName(TAB_STRIP)
+        self._tabs = tabs
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        bar = self._bar = QTabBar()
+        bar.setUsesScrollButtons(False)
+        bar.setExpanding(False)
+        bar.setElideMode(Qt.TextElideMode.ElideNone)
+        bar.setDocumentMode(tabs.documentMode())
+        self.setWidget(bar)
+        # a drag scrolls; a tap still reaches the tab under it
+        QScroller.grabGesture(self.viewport(), QScroller.ScrollerGestureType.LeftMouseButtonGesture)
+        props = QScroller.scroller(self.viewport()).scrollerProperties()
+        props.setScrollMetric(
+            QScrollerProperties.ScrollMetric.HorizontalOvershootPolicy,
+            QScrollerProperties.OvershootPolicy.OvershootAlwaysOff,
+        )
+        QScroller.scroller(self.viewport()).setScrollerProperties(props)
+        bar.currentChanged.connect(self._bar_changed)
+        tabs.currentChanged.connect(self._tabs_changed)
+
+    def update_tabs(self) -> None:
+        tabs, bar = self._tabs, self._bar
+        bar.blockSignals(True)
+        while bar.count():
+            bar.removeTab(0)
+        for i in range(tabs.count()):
+            bar.addTab(tabs.tabIcon(i), tabs.tabText(i))
+            bar.setTabVisible(i, tabs.isTabVisible(i))
+        bar.setCurrentIndex(tabs.currentIndex())
+        bar.blockSignals(False)
+        bar.setFixedSize(bar.sizeHint())
+        self.setFixedHeight(bar.height())
+        self._show_current()
+
+    def _bar_changed(self, index: int) -> None:
+        self._tabs.setCurrentIndex(index)
+        self._show_current()
+
+    def _tabs_changed(self, index: int) -> None:
+        if self._bar.currentIndex() != index:
+            self._bar.setCurrentIndex(index)
+
+    def _show_current(self) -> None:
+        rect = self._bar.tabRect(self._bar.currentIndex())
+        if rect.isValid():
+            self.ensureVisible(rect.center().x(), rect.center().y(), rect.width() // 2 + 24, 0)
+
+
+def _fit_tabs(tabs: QTabWidget, narrow: int) -> None:
+    """Tabs wider than the screen (Preferences has eight) get a strip that
+    scrolls with a swipe in place of Qt's tab bar; Qt's again when they fit
+    (landscape)."""
+    parent = tabs.parentWidget()
+    if parent is None:
+        return
+    strip = next(
+        (
+            c
+            for c in parent.findChildren(
+                TabStrip, TAB_STRIP, Qt.FindChildOption.FindDirectChildrenOnly
+            )
+            if c._tabs is tabs
+        ),
+        None,
+    )
+    fits = tabs.tabBar().sizeHint().width() <= narrow - 2 * CARD_MARGIN
+    if strip is None:
+        box = parent.layout()
+        if fits or not isinstance(box, QBoxLayout) or box.indexOf(tabs) < 0:
+            return
+        strip = TabStrip(tabs)
+        box.insertWidget(box.indexOf(tabs), strip)
+    tabs.tabBar().setVisible(fits)
+    strip.setVisible(not fits)
+    strip.update_tabs()
+
+
 def _is_small_dialog(w: QWidget, avail: QRect) -> bool:
     """A dialog with its own buttons and little content (the AnkiWeb login,
     a rename prompt). Filling the screen spreads it out: its text at the
@@ -195,7 +294,7 @@ def _is_small_dialog(w: QWidget, avail: QRect) -> bool:
     if sip.isdeleted(w) or not isinstance(w, QDialog) or w.findChild(QDialogButtonBox) is None:
         return False
     for child in w.findChildren(QWidget):
-        if isinstance(child, QAbstractScrollArea) or any(
+        if (isinstance(child, QAbstractScrollArea) and not isinstance(child, TabStrip)) or any(
             c.__name__ == "QWebEngineView" for c in type(child).__mro__
         ):
             return False

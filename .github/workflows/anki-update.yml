@@ -7,6 +7,9 @@
 #   krmanik/termux-packages release of that version when it exists (otherwise
 #   the PR says so), and the default versionName.
 #
+# The PR description reports what changed in the parts of Anki that Kioku
+# replaces at runtime or patches (shared/tools/anki_drift.py).
+#
 # Waits until Anki's wheels for the release are on PyPI. Builds started from
 # here only produce workflow artifacts (no release).
 name: Anki update
@@ -82,6 +85,21 @@ jobs:
             echo '```'
           } > "$RUNNER_TEMP/deps.md"
 
+      - name: What changed that Kioku depends on
+        if: steps.anki.outputs.update == 'true'
+        id: drift
+        env:
+          TAG: ${{ steps.anki.outputs.tag }}
+          CURRENT: ${{ steps.anki.outputs.current }}
+        run: |
+          git clone -q --filter=blob:none --no-checkout https://github.com/ankitects/anki "$RUNNER_TEMP/anki"
+          git -C "$RUNNER_TEMP/anki" fetch -q origin tag "$CURRENT" tag "$TAG"
+          if python3 -I shared/tools/anki_drift.py "$RUNNER_TEMP/anki" "$CURRENT" "$TAG" > "$RUNNER_TEMP/drift.md"; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Update Termux
         if: steps.anki.outputs.update == 'true'
         id: termux
@@ -119,6 +137,7 @@ jobs:
           CURRENT: ${{ steps.anki.outputs.current }}
           DEB: ${{ steps.termux.outputs.deb }}
           NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          DRIFT_CLEAN: ${{ steps.drift.outputs.clean }}
         run: |
           if [ "$DEB" = found ]; then
             termux="- [x] Termux: \`anki_${TAG}_aarch64.deb\` from krmanik/termux-packages"
@@ -132,9 +151,16 @@ jobs:
             echo "$termux"
             echo "- [ ] Builds: Android APK, iOS IPA and Termux APK were started on this branch (Actions tab)"
             echo "- [ ] Compare the dependencies below with \`shared/requirements.in\` and \`termux/tools/python-requirements.in\`"
+            if [ "$DRIFT_CLEAN" = true ]; then
+              echo "- [x] Nothing Kioku replaces in Anki changed, and the Rust patches apply (report below)"
+            else
+              echo "- [ ] Check the changed functions or failing patches in the report below (see shared/patches/README.md)"
+            fi
             echo "- [ ] Run the tests in docs/testing.md on a phone"
             echo
             cat "$RUNNER_TEMP/deps.md"
+            echo
+            cat "$RUNNER_TEMP/drift.md"
           } > "$RUNNER_TEMP/body.md"
           gh pr edit "$NUMBER" --body-file "$RUNNER_TEMP/body.md"
 

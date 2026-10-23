@@ -1,8 +1,8 @@
 #!/bin/bash
 # Host tests for Kioku's Python code (shared/tests) on the build machine:
 # desktop Anki's Python packages in a venv, with an rsbridge built from
-# android/deps/anki, which android/tools/fetch_deps.sh patched with
-# shared/patches/. No device needed.
+# android/deps/anki (Anki at ANKI_TAG with shared/patches/ applied). No device
+# needed.
 # Usage: shared/tests/run.sh [pytest args]
 # Env: PYTHON (default python3.14), PROTOC (default: on PATH)
 set -euo pipefail
@@ -13,15 +13,13 @@ WORK=$ROOT/build/host-tests
 VENV=$WORK/venv
 PYTHON=${PYTHON:-python3.14}
 
-[ -d "$ANKI_SRC/rslib" ] || { echo "run android/tools/fetch_deps.sh first" >&2; exit 1; }
-for patch in "$ROOT"/shared/patches/anki-*.patch; do
-    git -C "$ANKI_SRC" apply -R --check "$patch" 2> /dev/null \
-        || { echo "$patch is not applied to $ANKI_SRC" >&2; exit 1; }
-done
+"$ROOT/shared/tools/anki_source.sh" "$ANKI_SRC"
 
 if [ ! -x "$VENV/bin/python" ]; then
     mkdir -p "$WORK"
     "$PYTHON" -m venv "$VENV"
+fi
+if [ "$("$VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("aqt"))' 2>/dev/null)" != "$ANKI_PY_VERSION" ]; then
     "$VENV/bin/pip" install -q "anki==$ANKI_PY_VERSION" "aqt==$ANKI_PY_VERSION" PyQt6 pytest
 fi
 

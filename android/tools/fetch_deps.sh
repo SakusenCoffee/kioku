@@ -49,21 +49,9 @@ if [ ! -d python-android/prefix ]; then
     rm python-android.tar.gz
 fi
 
-if [ ! -d anki/rslib ]; then
-    # anki/ may already hold target/ alone, restored by CI's Rust cache
-    rm -rf anki.new
-    git clone -q --depth 1 --branch "$ANKI_TAG" https://github.com/ankitects/anki anki.new
-    git -C anki.new submodule update -q --init --depth 1
-    [ -d anki/target ] && mv anki/target anki.new/
-    rm -rf anki && mv anki.new anki
-fi
-
-# Kioku runs Anki's sync server on a thread it can stop and start again
-# (Preferences > Advanced); the stock one runs until Ctrl+C
-PATCH=$ROOT/../shared/patches/anki-syncserver.patch
-if ! git -C anki apply -R --check "$PATCH" 2> /dev/null; then
-    git -C anki apply "$PATCH"
-fi
+# Anki at ANKI_TAG with shared/patches/ applied; Kioku runs its sync server
+# on a thread it can stop and start again (Preferences > Advanced)
+"$ROOT/../shared/tools/anki_source.sh" "$DEPS/anki"
 
 sdist() {  # sdist <pypi name> <version> <unpacked dir>
     [ -d "sdist/$3" ] && return

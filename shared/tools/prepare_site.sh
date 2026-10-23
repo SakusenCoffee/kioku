@@ -21,7 +21,9 @@ grep -vE '^(orjson|rpds-py|markupsafe)==|^ *#' "$SHARED/requirements.txt" > "$TM
     -d "$TMP/wheels" -r "$TMP/pure.txt" "aqt==$ANKI_PY_VERSION"
 "$PYTHON" -m pip download -q --no-deps --only-binary :all: \
     --platform manylinux_2_35_x86_64 -d "$TMP/anki" "anki==$ANKI_PY_VERSION"
-for w in "$TMP"/wheels/*.whl "$TMP"/anki/*.whl; do unzip -qo "$w" -d "$SITE"; done
+# -DD: today's time, not the wheel's fixed one (2020-02-02 in Anki's wheels),
+# so a file of the same size in a new release isn't skipped by rsync -a
+for w in "$TMP"/wheels/*.whl "$TMP"/anki/*.whl; do unzip -qo -DD "$w" -d "$SITE"; done
 find "$SITE" -name '*.so' -delete
 
 cp -R "$SDIST/markupsafe-$MARKUPSAFE_VERSION/src/markupsafe" "$SITE/"

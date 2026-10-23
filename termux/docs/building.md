@@ -64,14 +64,30 @@ the repositories' packages.
 
 ## Building the anki package
 
-The `anki` .deb is built by hand in a GitHub Codespace: it needs x86_64 Linux with Docker, and a
-cold build takes about 29 minutes on 4 cores, too long to be worth a GitHub Actions workflow.
-Releases on krmanik/termux-packages named `anki-<version>` hold the result, and
+Releases on krmanik/termux-packages named `anki-<version>` hold the `anki` .deb, and
 `.github/workflows/anki-update.yml` downloads `anki_<version>_aarch64.deb` from the latest one.
 
 The package keeps Termux's default package name (paths under `/data/data/com.termux`), which
 `tools/build_rootfs.py` retargets, so do not set `TERMUX_APP__PACKAGE_NAME` and do not use
 `tools/build-termux-packages.sh` for it.
+
+### With GitHub Actions
+
+The `anki` workflow on krmanik/termux-packages (`.github/workflows/anki.yml`, on `master`) builds
+it: Actions → anki → Run workflow, with the Anki version (empty: the version in the recipe). It
+takes the recipes from the `anki` branch and lays them over the current upstream master, so the
+branch does not need rebasing. The release is created, marked latest, with the .debs and
+`SHA256SUMS.txt`; untick "Publish the release" to only keep them as a workflow artifact.
+
+Anki's build output (Rust targets, node_modules, about 1.7 GB compressed) and the downloaded
+dependencies stay in the Actions cache (`ANKI_BUILD_CACHE` in the recipe), and python-markupsafe
+and python-orjson are reused while their recipes are unchanged. GitHub drops caches unused for 7
+days, so a weekly scheduled run of the same workflow restores them to keep them. Untick "Use the
+build cache" to build from scratch.
+
+Then run Kioku's "Anki update" workflow, or do step 6 below by hand.
+
+### By hand in a Codespace
 
 1. In `~/termux-packages` (branch `anki`), bump `TERMUX_PKG_VERSION` in
    `x11-packages/anki/build.sh` and rebase onto the current upstream master:
@@ -133,20 +149,23 @@ The package keeps Termux's default package name (paths under `/data/data/com.ter
 6. In this repository: replace the anki deb in `local-debs/` and set the Anki version in
    `versionName` in `app/build.gradle` (the update workflow does both when the release exists).
 
-Measured on 2026-10-23 for 26.09.3 (4 cores, nothing cached):
+### Build times
 
-| Step | Time |
-|---|---|
-| Pull `ghcr.io/termux/package-builder` | 4 min 19 s |
-| Create the container | 31 s |
-| Download the dependencies from the Termux repositories | 3 min 35 s |
-| python-markupsafe (mostly building the host Python) | 6 min 53 s |
-| python-orjson | 36 s |
-| anki: source and setup | 1 min 36 s |
-| anki: `ninja wheels` | 8 min 3 s |
-| anki: `cargo build` of rsbridge for Android | 3 min 15 s |
-| anki: install and package | 14 s |
-| **Total** | **29 min 3 s** |
+Measured on 2026-10-23 for 26.09.3, all on 4 cores:
+
+| Step | Codespace | Actions, no cache | Actions, cached |
+|---|---|---|---|
+| Restore the cache | | | 34 s |
+| Pull the builder image, create the container | 4 min 50 s | 2 min 2 s | 1 min 29 s |
+| Download the dependencies | 3 min 35 s | 1 min 36 s | 29 s |
+| python-markupsafe (mostly building the host Python) | 6 min 53 s | 2 min 4 s | reused |
+| python-orjson | 36 s | 29 s | reused |
+| anki: `ninja wheels`, rsbridge for Android, packaging | 13 min 8 s | 9 min 26 s | 4 min 35 s |
+| Save the cache | | 18 s | 27 s |
+| **Whole run** | **29 min 3 s** | **16 min 9 s** | **7 min 44 s** |
+
+With the cache, Anki's own crates are still compiled (with LTO, about 2 min 15 s for rsbridge);
+a new Anki version changes them anyway.
 
 ## Application id and the runtime
 

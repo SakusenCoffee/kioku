@@ -56,6 +56,7 @@ def apply() -> None:
     _patch_profile_saving()
     _patch_bar_heights()
     _patch_review_menu()
+    _patch_splitters()
     _patch_update_check()
 
 
@@ -309,6 +310,35 @@ def _patch_review_menu() -> None:
         update()
 
     gui_hooks.main_window_did_init.append(lambda: setup(aqt.mw))
+
+
+def _patch_splitters() -> None:
+    """Add-ons such as AMBOSS put Anki's main view into a splitter beside a
+    side panel, with desktop minimum widths (main view 400 px, the AMBOSS
+    panel 624 px) that add up to more than a phone's screen; the splitter
+    then lays the panel off the screen. Such splitters get a MainSplit."""
+    import aqt
+    from aqt.qt import QSplitter
+
+    from .mainsplit import MainSplit
+
+    def adopt(splitter: QSplitter, widget) -> None:  # type: ignore[no-untyped-def]
+        mw = aqt.mw
+        if mw is not None and widget is mw.web and not hasattr(splitter, "_kioku_split"):
+            splitter._kioku_split = MainSplit(splitter)
+
+    add, insert = QSplitter.addWidget, QSplitter.insertWidget
+
+    def add_widget(self, widget):  # type: ignore[no-untyped-def]
+        adopt(self, widget)
+        add(self, widget)
+
+    def insert_widget(self, index, widget):  # type: ignore[no-untyped-def]
+        adopt(self, widget)
+        insert(self, index, widget)
+
+    QSplitter.addWidget = add_widget
+    QSplitter.insertWidget = insert_widget
 
 
 def _patch_update_check() -> None:

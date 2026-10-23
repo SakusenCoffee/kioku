@@ -113,6 +113,8 @@ Results on iOS with Anki 26.8.1 (October 2026): see [testing.md](testing.md).
 | --- | --- | --- |
 | Some add-ons seemed not to load | one add-on (AnKing Note Types) opens a modal tutorial during start-up; the rest load when it is closed | nothing to fix |
 | AnkiConnect requests time out when made from the main thread | AnkiConnect answers on the main thread | call it from another thread (as real clients do) |
+| AMBOSS side panel off the screen on a phone | the add-on puts Anki's main view and its panel into a splitter; their desktop minimum widths (400 + 624 px) exceed a phone's width | `kioku/mainsplit.py` (given to a splitter that holds `mw.web`): under 600 pt wide the panes are stacked, main view above the panel, minimum widths dropped, and a ▲/▼ button on the handle expands the panel or splits again; wider (tablets, landscape) side by side with minimum widths capped at a third |
+| AMBOSS: the top bar's AMBOSS button covered Sync; its term pop-ups (480-550 px wide) ran off a phone's screen, which can't scroll sideways | Anki's top bar centres its links over the add-on tray; the pop-ups (tippy.js) have desktop widths | `webscripts.VIEWPORT`, under 600 px: the top bar becomes one wrapping row, tippy pop-ups at most the screen width less 16 px with images scaled |
 
 ## Sync server and AnkiDroid's folder (Preferences › Advanced)
 

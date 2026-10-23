@@ -88,7 +88,8 @@ PRELUDE = r"""
 """
 
 # Desktop pages have no viewport meta; without one mobile browsers lay them
-# out at 980px and shrink them. Also narrows Anki's deck list on phones.
+# out at 980px and shrink them. Also narrows Anki's deck list, the top bar's
+# add-on buttons and add-on pop-ups on phones.
 VIEWPORT = r"""
 (function () {
     if (!document.querySelector("meta[name=viewport]") && document.head) {
@@ -105,6 +106,16 @@ VIEWPORT = r"""
         "  table:has(.decktd) .count { min-width: 2em; }" +
         "  table:has(.decktd) td, table:has(.decktd) th { padding-left: 4px !important; padding-right: 4px !important; }" +
         "  body:has(.decktd) { margin-left: 0.5em; margin-right: 0.5em; }" +
+        // add-on buttons in the top bar (right-tray) covered Sync: share one
+        // row with the links, or wrap to a second one
+        "  .header:has(.tray-item) { display: flex; flex-wrap: wrap; justify-content: center; align-items: start; }" +
+        "  .header:has(.tray-item) .hitem { padding-left: 6px; padding-right: 6px; }" +
+        "  .header .tray-item { margin-left: 2px !important; margin-right: 2px !important; }" +
+        // add-on pop-ups made with tippy.js (AMBOSS: 480-550px wide) ran off
+        // the screen, which doesn't scroll sideways
+        "  .tippy-popper { max-width: calc(100vw - 16px) !important; }" +
+        "  .tippy-popper .tippy-tooltip { min-width: 0 !important; max-width: calc(100vw - 16px) !important; }" +
+        "  .tippy-popper img { max-width: 100%; height: auto; }" +
         "}";
     (document.head || document.documentElement).appendChild(s);
 })();

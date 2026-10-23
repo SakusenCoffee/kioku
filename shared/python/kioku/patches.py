@@ -56,6 +56,7 @@ def apply() -> None:
     _patch_profile_saving()
     _patch_bar_heights()
     _patch_review_menu()
+    _patch_update_check()
 
 
 def _dark_mode() -> bool:
@@ -308,6 +309,28 @@ def _patch_review_menu() -> None:
         update()
 
     gui_hooks.main_window_did_init.append(lambda: setup(aqt.mw))
+
+
+def _patch_update_check() -> None:
+    """Anki's update check announces desktop releases, which Kioku users
+    can't install: Kioku updates bring the next Anki."""
+    import aqt
+    import aqt.main
+    import aqt.preferences
+    from aqt import gui_hooks
+
+    aqt.main.AnkiQt.setup_auto_update = lambda self, _log: None
+    gui_hooks.main_window_did_init.append(
+        lambda: aqt.mw.form.action_check_for_updates.setVisible(False)
+    )
+
+    original_init = aqt.preferences.Preferences.__init__
+
+    def init(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        original_init(self, *args, **kwargs)
+        self.form.check_for_updates.setVisible(False)
+
+    aqt.preferences.Preferences.__init__ = init
 
 
 def _patch_audio() -> None:

@@ -48,6 +48,7 @@ apps (AltStore, Sideloadly, …).
 KIOKU_TEAM=<team id> tools/run_device.sh       # build, install, launch, show the log
 tools/devcmd.sh --shot 'print(widgets())'      # run Python in the app, take a screenshot
 tools/sweep.sh                                 # open every window, report overflow
+tools/smoke.sh                                 # crash sweep: windows, study, switch profile, Back
 ```
 
 The iOS Simulator is not supported: Qt's prebuilt iOS libraries have no

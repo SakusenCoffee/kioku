@@ -439,3 +439,20 @@ then, on iOS 18 only, WebKit's stack bounds for the main thread (`ios/src/main.m
 
 The patched build exports the same symbols as Qt's object, and the linked
 app's `notifyAccessibilityUpdate` is the patched one (169 instructions, 144 in Qt's).
+
+### Crash sweep (`ios/tools/smoke.sh`, 2026-10-23)
+
+`tools/smoke.sh` runs `tools/smoke.py` in the app: About, Browse, Add, Stats,
+Preferences, Note Types, Filtered deck, Study Deck, Empty Cards, Export,
+Add-ons, Deck Options, Check Database, Check Media, Sync (login), study a
+card, answer, undo, deck list, Switch Profile and Back, each closed the way
+Back closes it. Each step logs `SWEEP <n> <name>` before it starts, so after a
+crash the log shows the step; the script prints only the summary and new
+crash reports.
+
+| Build (iPhone 15 Pro Max, iOS 27.0.1) | Result |
+| --- | --- |
+| 4 (Back on the profile window reopens the last profile) | ✅ 22/22, back on profile User 1 |
+| 5 (also `os._exit` after `aqt.run()`) | ✅ 22/22; Quit (`unloadProfileAndExit`) ends the app without a crash report |
+
+The sweep can't run on BrowserStack (no `devcmd` there): iOS 18 is checked by hand there.

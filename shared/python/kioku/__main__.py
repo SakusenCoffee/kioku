@@ -81,11 +81,26 @@ def main() -> None:
         import aqt
 
         aqt.run()
-    except SystemExit:
-        raise
+    except SystemExit as exit:
+        _exit(exit.code if isinstance(exit.code, int) else 0)
     except BaseException:
         traceback.print_exc()
         raise
+    _exit(0)
+
+
+def _exit(code: int) -> None:
+    """Leave without the interpreter's shutdown: sip's atexit clean-up then
+    visits Qt objects Qt has already deleted and sometimes crashed
+    (cleanup_qobject, after Quit in the profile window). Anki has closed
+    the collection and saved the profile by the time aqt.run() returns."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:
+            pass
+    logging.shutdown()
+    os._exit(code)
 
 
 main()

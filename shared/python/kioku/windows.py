@@ -54,7 +54,7 @@ class TitleBar(QWidget):
         close.setFlat(True)
         close.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         close.setCursor(Qt.CursorShape.PointingHandCursor)
-        close.clicked.connect(window.close)
+        close.clicked.connect(lambda: _back(window))
         font = close.font()
         font.setBold(True)
         close.setFont(font)
@@ -430,7 +430,25 @@ def _go_back() -> None:
         if move_to_back is not None:
             move_to_back()
         return
-    w.close()
+    _back(w)
+
+
+def _back(w: QWidget) -> None:
+    """Back closes the window, except Anki's profile window: closing that
+    quits Anki, which a phone app must not do (Switch Profile, then Back,
+    ended the app). Reopen the last profile instead; at start-up, before
+    any profile was opened, stay."""
+    import aqt
+
+    if type(w).__name__ != "ProfileManager":
+        w.close()
+        return
+    mw = aqt.mw
+    profiles = mw.pm.profiles()
+    name = mw.pm.last_loaded_profile_name()
+    if name in profiles:
+        mw.profileForm.profiles.setCurrentRow(profiles.index(name))
+        mw.onOpenProfile()
 
 
 class EnterKeyFilter(QObject):

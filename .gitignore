@@ -14,4 +14,4 @@ __pycache__/
 dist/
 build-testdata/
 .env
-*.p8
+*.p8docs/manual/book/

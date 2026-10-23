@@ -26,6 +26,9 @@ Kioku only connects to the internet when you use a feature that needs it:
 - **Add-ons you install**: they are third-party programs and may connect to
   their own services (for example text-to-speech). Check each add-on's
   description.
+- **Kioku's sync server and remote desktop**, only if you turn them on: they
+  accept connections from the devices you choose (this phone, your Tailscale
+  network or your Wi-Fi). Nothing is sent to the developer.
 
 ## Children
 

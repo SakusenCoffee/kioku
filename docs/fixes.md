@@ -112,7 +112,7 @@ Results on iOS with Anki 26.8.1 (October 2026): see [testing.md](testing.md).
 
 ## Sync server and AnkiDroid's folder (Preferences › Advanced)
 
-User guide: [sync-server.md](sync-server.md). Code: `shared/python/kioku/`
+User guide: [sync-server.md](manual/src/features/sync-server.md). Code: `shared/python/kioku/`
 `syncserver.py`, `ankidroid.py`, `advanced.py`; host tests in `shared/tests/`
 (`shared/tests/run.sh`).
 

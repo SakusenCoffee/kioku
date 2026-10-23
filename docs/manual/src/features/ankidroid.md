@@ -1,52 +1,6 @@
-# Sync server and AnkiDroid's media (Preferences › Advanced)
+# AnkiDroid's media (Android)
 
-The native iPhone and Android apps have an **Advanced** tab in Anki's
-Preferences, with options for experienced users. Everything there is off until
-you turn it on, and each option explains its risks first.
-
-## Sync server on this phone
-
-Kioku can run Anki's own sync server (the one behind `anki --syncserver`) on
-the phone. Then the phone can be the sync server, with no AnkiWeb needed:
-
-- **AnkiDroid on the same phone** syncs with Kioku: Settings › Sync ›
-  Custom sync server › Sync URL `http://127.0.0.1:8080/`, then log in with the
-  user name and password shown in Kioku.
-- **Kioku's own profiles** sync with it: press **Use for this profile**.
-- **Anki on your computers** syncs with it over Tailscale (or your Wi-Fi):
-  Preferences › Syncing › Self-hosted sync server.
-
-| Android | iPhone | Android's notification |
-| --- | --- | --- |
-| <img src="images/advanced-android-sync-server.png" width="240" alt="Preferences, Advanced tab on Android: the sync server is running on port 8080, with its address, user name and password"> | <img src="images/advanced-ios-sync-server.png" width="240" alt="Preferences, Advanced tab on iPhone: the sync server is running on port 8080"> | <img src="images/advanced-android-notification.png" width="240" alt="Android notification: Sync server running, listening on port 8080, with a Stop button"> |
-
-| Setting | Meaning |
-| --- | --- |
-| Listen on: This phone only | only apps on the phone can connect (default) |
-| Listen on: Tailscale | the phone's Tailscale address; your Tailscale devices can connect, encrypted by Tailscale |
-| Listen on: All networks | any device on the same Wi-Fi or VPN can connect. Plain HTTP: only on networks you trust |
-| Port | 8080 by default; choose another if an app already uses it |
-| User name, password | a password is made up when you first turn the server on. **New** makes another one; devices then log in again |
-| Delete server data | removes everything synced to the phone's server; each device's next sync is a full upload |
-
-Things to know:
-
-- The server keeps **its own copy** of everything synced to it (collection and
-  media) in Kioku's private storage. It needs that much free space.
-- A device that syncs with the phone **no longer syncs with AnkiWeb**.
-- The first time, choose **Upload** on the device that has your cards and
-  **Download** on the others.
-- Two devices syncing at the same moment: one of them gets Anki's "Only one
-  copy of Anki can sync to your account at once" error. Nothing is lost; sync
-  it again a moment later.
-- **Android:** while the server runs, a notification shows and Kioku keeps
-  running in the background (its **Stop** action stops the server until
-  Kioku starts again). Allow notifications when Android asks, or the
-  notification stays hidden.
-- **iPhone:** iOS pauses apps in the background, so the server only answers
-  while Kioku is open. It starts again by itself when you come back.
-
-## AnkiDroid's media (Android)
+> **Applies to:** Android native
 
 For **large media collections** on a phone with AnkiDroid: a Kioku profile can
 use AnkiDroid's `collection.media` folder instead of its own, so the media is
@@ -71,7 +25,7 @@ Setting it up:
 
 | AnkiDroid: Settings › Sync | Kioku: Preferences › Advanced |
 | --- | --- |
-| <img src="images/advanced-ankidroid-sync-settings.png" width="240" alt="AnkiDroid's sync settings: logged in as kioku, Fetch media on sync set to Never, Custom sync server http://127.0.0.1:8080/"> | <img src="images/advanced-android-ankidroid-media.png" width="240" alt="Kioku's AnkiDroid folder settings: AnkiDroid's media chosen, with checks for All files access, AnkiDroid 2.25.3, collection.media, collection.anki2 and the sync server"> |
+| <img src="../images/advanced-ankidroid-sync-settings.png" width="240" alt="AnkiDroid's sync settings: logged in as kioku, Fetch media on sync set to Never, Custom sync server http://127.0.0.1:8080/"> | <img src="../images/advanced-android-ankidroid-media.png" width="240" alt="Kioku's AnkiDroid folder settings: AnkiDroid's media chosen, with checks for All files access, AnkiDroid 2.25.3, collection.media, collection.anki2 and the sync server"> |
 
 The checks under the choices show what is missing, if anything: All files
 access (with a button that opens Android's setting), the AnkiDroid version, the
@@ -90,7 +44,7 @@ What changes for that profile:
 If AnkiDroid's folder can't be opened (no permission, folder moved), the
 profile opens with its own collection and Kioku says why.
 
-### Syncing when you switch between Kioku and AnkiDroid
+## Syncing when you switch between Kioku and AnkiDroid
 
 Anki syncs automatically when a profile opens and closes, but phone apps are
 rarely closed. So a Kioku profile that syncs with the phone's server also
@@ -123,7 +77,7 @@ as with any Anki sync; review history from both is kept.
 The Advanced tab lists **AnkiDroid's collection (not available)**. Tapping it
 explains why instead of turning it on:
 
-<img src="images/advanced-android-folder-unavailable.png" width="240" alt="Kioku's popup: opening AnkiDroid's own collection isn't available because it can lose changes; use AnkiDroid's media and the sync server instead">
+<img src="../images/advanced-android-folder-unavailable.png" width="240" alt="Kioku's popup: opening AnkiDroid's own collection isn't available because it can lose changes; use AnkiDroid's media and the sync server instead">
 
 Anki locks a collection while it is open, so that only one app can change it.
 But Anki's automatic backups, in Kioku and in AnkiDroid, release that lock
@@ -132,7 +86,7 @@ file handle, and closing that handle drops the app's lock on the file. After a
 backup, both apps could have the collection open at once. That happened while
 testing, and AnkiDroid's answers were lost. Neither app can tell from the
 outside that the lock is gone, so Kioku doesn't offer it until Anki (in both
-apps) keeps its lock. Details: [testing.md](testing.md#ankidroids-collection-2026-10-23).
+apps) keeps its lock. Details: [testing.md](https://github.com/krmanik/kioku/blob/main/docs/testing.md#ankidroids-collection-2026-10-23).
 
 "AnkiDroid's media" with the sync server above gets the same result safely:
 media exists once on the phone, and each app has its own small copy of the

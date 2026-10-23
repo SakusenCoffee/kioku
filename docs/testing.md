@@ -290,7 +290,7 @@ taken from its voice names (`en-US-SMTf00`).
 
 ## Sync server and AnkiDroid's media (2026-10-22)
 
-Guide: [sync-server.md](sync-server.md). Fixes: [fixes.md](fixes.md#sync-server-and-ankidroids-folder-preferences--advanced).
+Guide: [sync-server.md](manual/src/features/sync-server.md). Fixes: [fixes.md](fixes.md#sync-server-and-ankidroids-folder-preferences--advanced).
 
 ### Host tests (`shared/tests/run.sh`, macOS, Anki 26.8.1 + patched rsbridge)
 
@@ -384,7 +384,7 @@ Not done: big collection timings, Samsung M30s, device reboots.
 
 ## Syncing when switching apps, AnkiDroid's collection explained (2026-10-23)
 
-Guide: [sync-server.md](sync-server.md#syncing-when-you-switch-between-kioku-and-ankidroid).
+Guide: [sync-server.md](manual/src/features/ankidroid.md#syncing-when-you-switch-between-kioku-and-ankidroid).
 
 Host tests: 68 passing. New (`test_switchsync.py`, real sync server, a
 second collection standing in for AnkiDroid): when it applies (phone's

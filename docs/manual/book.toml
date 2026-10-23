@@ -1,0 +1,16 @@
+[book]
+title = "Kioku Manual"
+description = "How to install and use Kioku, the Anki desktop app on iPhone, iPad and Android."
+authors = ["Kioku contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/krmanik/kioku/"
+edit-url-template = "https://github.com/krmanik/kioku/edit/main/docs/manual/{path}"
+site-url = "/kioku/"
+smart-punctuation = true
+
+[output.html.fold]
+enable = true
+level = 1

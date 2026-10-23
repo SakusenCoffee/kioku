@@ -66,11 +66,15 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
 
+def serve(web_port: int, host: str, directory: str, vnc_port: int) -> None:
+    Handler.vnc_port = vnc_port
+    server = ThreadingHTTPServer((host, web_port), partial(Handler, directory=directory))
+    server.serve_forever()
+
+
 def main() -> None:
     web_port, host, directory, vnc_port = sys.argv[1:5]
-    Handler.vnc_port = int(vnc_port)
-    server = ThreadingHTTPServer((host, int(web_port)), partial(Handler, directory=directory))
-    server.serve_forever()
+    serve(int(web_port), host, directory, int(vnc_port))
 
 
 if __name__ == "__main__":

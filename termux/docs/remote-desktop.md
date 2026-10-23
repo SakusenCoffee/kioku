@@ -16,6 +16,21 @@ User guide: [manual](https://krmanik.github.io/kioku/features/remote-desktop.htm
   `defaults.json` per request, with the host the browser used (noVNC only takes its
   own port together with a host), so the same page works over Tailscale, Wi-Fi or
   `adb forward`.
+- The noVNC server process (`ankidesk_remote.py serve`, pid file `remote-web`)
+  is the session's helper, started right after Xvfb, before the desktop:
+  - Xvfb's own RandR mode has no timings, so XFCE saw "1920x1080 @ nan" and
+    couldn't match its own mode. The helper adds 60 Hz modes for every common
+    size up to the screen's (`ankidesk_xscreen.py`, XCB through ctypes) and
+    switches to the one of the current size. It has to keep its X connection:
+    the server drops a client's modes when it disconnects.
+  - XFCE's Scale needs CRTC transforms, which Xvfb doesn't have: xfsettingsd
+    shrank the screen, switched the only output off and couldn't switch it on
+    again ("screen (Disabled)", nothing in XFCE can undo it). When RandR has been
+    quiet for 3 s and no output is on, the helper puts back the last size and
+    mode that worked.
+  - x11vnc runs with `-xrandr resize` (viewers get the new size), and the helper
+    starts it again if it exits while the session is up (at most 5 times a
+    minute), so noVNC's reconnect finds it.
 - Anki keeps separate window sizes for the remote screen (`kioku_remote_` keys in
   the profile), so the phone's are untouched; the first time, it opens maximized.
 - Code: `rootfs-overlay/share/ankidx/ankidesk_remote.py` and `ankidesk_novnc.py` (no Qt; tests in
@@ -44,5 +59,14 @@ Android emulator (API 37, arm64), runtime rebuilt with current Termux packages,
 | Power off while on: Anki on `:1` closes cleanly, then the session ends | ✅ after a fix (Power off didn't end the session at all: Qt 6 cancels `quit()` when a window refuses to close, and the desktop always does; it now uses `exit()`) |
 | Updating the app keeps the collection (the deck made remotely) | ✅ |
 
-Not done yet: a real phone, Tailscale and Wi-Fi from another computer, long sessions
+Samsung M30s (Android 11), XFCE desktop, 2026-10-23:
+
+| Test | Result |
+| --- | --- |
+| `tools/test_on_device.sh`: 25 tests with stand-ins (above, plus x11vnc started again after it exits, and the helper up before the desktop) and 4 with the real Xvfb, x11vnc and JWM on `:7` (`tests/test_xscreen.py`): 60 Hz modes, a screen left off comes back, a resolution change stays, and a whole session where a VNC viewer (`tests/vnc_client.py`) stays connected while the screen is shrunk and switched off, gets 1920 × 1080 back, and reconnects after x11vnc is killed | ✅ |
+| XFCE Display settings, driven through XTest and watched with noVNC in Chrome: refresh rate | ✅ 60.00 Hz (was "nan Hz") |
+| Scale 1.5, Apply, Keep (before the fix: screen 1280 × 720 and "Disabled" for good; on the user's phone x11vnc was gone too) | ✅ xfsettingsd still can't scale; the screen is back at 1920 × 1080 after 3 s, noVNC connected throughout |
+| Window Scaling 2× (Appearance) | ✅ works, x11vnc unaffected |
+
+Not done yet: Tailscale and Wi-Fi from another computer, long sessions
 with the screen off, 2560 × 1440.

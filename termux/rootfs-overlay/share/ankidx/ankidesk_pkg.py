@@ -25,6 +25,7 @@ import os
 import re
 import shutil
 import ssl
+import subprocess
 import sys
 import tarfile
 import time
@@ -384,9 +385,21 @@ def restore(progress: Progress = _no_progress) -> list[str]:
 
 
 def _run_triggers() -> None:
-    """The few post-install steps desktop apps rely on."""
+    """The few post-install steps desktop apps rely on (normally maintainer
+    scripts): GTK's image loader cache, without which GTK apps draw no icons,
+    the icon themes' caches, and telling the desktop about new apps."""
     from ankidesk_menu import notify_shell
 
+    def run(*argv: str) -> None:
+        if os.path.exists(argv[0]):
+            subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, check=False)
+
+    run(os.path.join(PREFIX, "bin/gdk-pixbuf-query-loaders"), "--update-cache")
+    icons = os.path.join(PREFIX, "share/icons")
+    for theme in sorted(os.listdir(icons)) if os.path.isdir(icons) else []:
+        if os.path.exists(os.path.join(icons, theme, "index.theme")):
+            run(os.path.join(PREFIX, "bin/gtk-update-icon-cache"), "-q", "-f", "-t", os.path.join(icons, theme))
     notify_shell()
 
 

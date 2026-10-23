@@ -36,6 +36,12 @@ uses at most 8 characters of a password, so it is 8 random letters and digits.
 Screen sizes: 1280 × 800, 1600 × 900, 1920 × 1080 (default) and 2560 × 1440. The
 web viewer scales the screen to the browser window.
 
+With the XFCE desktop, **Settings › Display** can change the resolution, up to the
+size chosen here; the viewer follows. **Scale** there doesn't work on the remote
+screen (it has no hardware to scale with): the screen comes back as it was after a
+few seconds. For bigger text and buttons use **Settings › Appearance › Settings ›
+Window Scaling**, or choose a smaller screen size here.
+
 ## While it is on
 
 - Anki runs on the remote screen at 100% size, without the phone's touch changes

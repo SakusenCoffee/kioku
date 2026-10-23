@@ -11,6 +11,12 @@ Turning it on:
    speaks WebSocket on the same port, so noVNC (served here over HTTP) makes
    any web browser a viewer too (ankidesk_novnc.py serves it).
 
+The process serving noVNC (`python ankidesk_remote.py serve`, "web") also
+looks after the session while it's up: it gives :1 proper display modes and
+puts the screen back when a desktop's display settings leave it switched off
+(ankidesk_xscreen.py), and starts x11vnc again if it exits, so viewers that
+reconnect (noVNC does) find it.
+
 The phone shows "Remote session active" (the desktop's Remote page) and the
 Android app holds a Wi-Fi lock. Turning it off closes Anki on :1 and opens it
 on the phone again. If Anki doesn't close (a window is asking something),
@@ -40,25 +46,39 @@ from typing import Callable
 PREFIX = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
 HOME = os.environ.get("HOME", os.path.join(os.path.dirname(PREFIX), "home"))
 TMPDIR = os.environ.get("TMPDIR", os.path.join(PREFIX, "tmp"))
+# where X servers put their sockets and locks (built in; TMPDIR in the app)
+X_TMP = os.path.join(PREFIX, "tmp")
 CONFIG_DIR = os.path.join(HOME, ".config/kioku")
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "remote.json")
 PASSWD_FILE = os.path.join(CONFIG_DIR, "remote.passwd")
 JWMRC = os.path.join(CONFIG_DIR, "remote-jwmrc")
+XFCE_SCRIPT = os.path.join(CONFIG_DIR, "remote-xfce.sh")
+# an XDG data dir only the remote XFCE reads: Anki in its menu, not twice on the phone
+XFCE_DATA = os.path.join(CONFIG_DIR, "remote-share")
 # exists while the remote session is up; holds what the phone shows
 STATE_FILE = os.path.join(CONFIG_DIR, "remote-active")
 NOVNC_DIR = os.path.join(PREFIX, "share/novnc")
 LAUNCH_ANKI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "launch_anki.py")
-NOVNC_SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ankidesk_novnc.py")
+REMOTE_SCRIPT = os.path.abspath(__file__)
 
-DISPLAY = ":1"
+# another one only for tests, next to a real session
+DISPLAY = os.environ.get("ANKIDX_REMOTE_DISPLAY", ":1")
 LOCAL, TAILSCALE, ALL = "local", "tailscale", "all"
 LISTEN = (LOCAL, TAILSCALE, ALL)
 RESOLUTIONS = ("1280x800", "1600x900", "1920x1080", "2560x1440")
+SIMPLE, XFCE = "simple", "xfce"
+DESKTOPS = (SIMPLE, XFCE)
+# what choosing XFCE installs: Termux's xfce4 has no xfdesktop, without which
+# nothing repaints the background and moved windows leave trails
+XFCE_PACKAGES = ["xfce4", "xfdesktop", "fluent-gtk-theme"]
+XFCE_THEME = "Fluent-Dark"
 # VNC's own password check uses only the first 8 characters
 PASSWORD_LENGTH = 8
 TAILSCALE_NET = ipaddress.ip_network("100.64.0.0/10")
 TAILSCALE_PROBE = "100.100.100.100"
 ANKI_CLOSE_SECONDS = 120
+# x11vnc started again at most this often (it exits at once on a bad display)
+VNC_RESTARTS, VNC_RESTART_WINDOW = 5, 60.0
 
 Progress = Callable[[str, float], None]
 
@@ -81,10 +101,15 @@ class Settings:
     vnc_port: int = 5900
     web_port: int = 6080
     password: str = ""
+    desktop: str = SIMPLE
 
     def problem(self) -> str | None:
         if self.listen not in LISTEN:
             return "Choose where to listen."
+        if self.desktop not in DESKTOPS:
+            return "Choose a desktop."
+        if self.desktop == XFCE and not xfce_installed():
+            return "XFCE isn't installed: choose it again to install it."
         if self.resolution not in RESOLUTIONS:
             return "Choose a screen size."
         for port in (self.vnc_port, self.web_port):
@@ -236,8 +261,8 @@ def _environ(pid: int) -> dict[str, str]:
     return dict(pairs)
 
 
-def spawn(name: str, argv: list[str], env: dict[str, str] | None = None) -> int:
-    with open(_log_file(name), "wb") as log:
+def spawn(name: str, argv: list[str], env: dict[str, str] | None = None, append: bool = False) -> int:
+    with open(_log_file(name), "ab" if append else "wb") as log:
         proc = subprocess.Popen(argv, env=env, start_new_session=True, stdin=subprocess.DEVNULL,
                                 stdout=log, stderr=subprocess.STDOUT)
     _children.append(proc)
@@ -263,14 +288,26 @@ def tracked_pid(name: str) -> int | None:
 def stop_process(name: str, seconds: float = 5) -> None:
     pid = tracked_pid(name)
     if pid is not None:
-        _signal(pid, signal.SIGTERM)
+        _signal_group(pid, signal.SIGTERM)
         if not _wait_exit(pid, seconds):
-            _signal(pid, signal.SIGKILL)
+            _signal_group(pid, signal.SIGKILL)
             _wait_exit(pid, 2)
     try:
         os.remove(_pid_file(name))
     except OSError:
         pass
+
+
+def _signal_group(pid: int, sig: int) -> None:
+    """spawn() starts each program in a session of its own: signal everything
+    it started too (XFCE's session is a tree of processes)."""
+    try:
+        if os.getpgid(pid) == pid:
+            os.killpg(pid, sig)
+            return
+    except OSError:
+        pass
+    _signal(pid, sig)
 
 
 def _signal(pid: int, sig: int) -> None:
@@ -408,15 +445,90 @@ def write_jwmrc(s: Settings) -> None:
 """)
 
 
+def xfce_installed() -> bool:
+    return all(os.path.exists(os.path.join(PREFIX, "bin", exe)) for exe in ("startxfce4", "xfdesktop"))
+
+
+def install_xfce(progress: Progress | None = None) -> list[str]:
+    import ankidesk_pkg
+
+    return ankidesk_pkg.install(XFCE_PACKAGES, progress or (lambda text, fraction: None))
+
+
+def remove_xfce(progress: Progress | None = None) -> list[str]:
+    import ankidesk_pkg
+
+    s = load_settings()
+    if s.desktop == XFCE:
+        s.desktop = SIMPLE
+        save_settings(s)
+    return ankidesk_pkg.remove(XFCE_PACKAGES, progress or (lambda text, fraction: None))
+
+
+def _write_new(path: str, text: str) -> None:
+    """XFCE's own settings: only the first time, later changes made in XFCE win."""
+    if os.path.exists(path):
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
+def write_xfce_files() -> None:
+    """XFCE for :1: Anki in its menu, the Fluent theme, and a script that
+    falls back to the plain taskbar (with Anki's button) on Log Out."""
+    os.makedirs(os.path.join(XFCE_DATA, "applications"), exist_ok=True)
+    with open(os.path.join(XFCE_DATA, "applications", "kioku-anki.desktop"), "w", encoding="utf-8") as fh:
+        fh.write(f"""[Desktop Entry]
+Type=Application
+Name=Anki
+Comment=Your collection, on this screen
+Exec={sys.executable} {LAUNCH_ANKI}
+Icon=anki
+Categories=Education;
+""")
+    xml = os.path.join(HOME, ".config/xfce4/xfconf/xfce-perchannel-xml")
+    _write_new(os.path.join(xml, "xsettings.xml"), f"""<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="{XFCE_THEME}"/>
+    <property name="IconThemeName" type="string" value="Adwaita"/>
+  </property>
+</channel>
+""")
+    _write_new(os.path.join(xml, "xfwm4.xml"), f"""<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="{XFCE_THEME}"/>
+  </property>
+</channel>
+""")
+    bin_ = os.path.join(PREFIX, "bin")
+    with open(XFCE_SCRIPT, "w", encoding="utf-8") as fh:
+        fh.write(f"""# XFCE on the remote screen (ankidesk_remote.py). After Log Out the
+# plain taskbar takes over, so Anki can be opened again.
+{bin_}/dbus-launch --exit-with-session {bin_}/startxfce4
+{bin_}/jwm -f {JWMRC}
+""")
+
+
+def xfce_environment() -> dict[str, str]:
+    env = anki_environment(remote=True)
+    env["XDG_DATA_DIRS"] = f"{XFCE_DATA}:{os.path.join(PREFIX, 'share')}"
+    # a session bus of its own (dbus-launch), not the phone desktop's
+    env.pop("DBUS_SESSION_BUS_ADDRESS", None)
+    return env
+
+
 def _xvfb_lock_stale() -> None:
-    lock = os.path.join(TMPDIR, ".X1-lock")
+    lock = os.path.join(X_TMP, f".X{DISPLAY[1:]}-lock")
     try:
         with open(lock, encoding="utf-8") as fh:
             pid = int(fh.read().strip())
     except (OSError, ValueError):
         return
     if not _alive(pid):
-        for path in (lock, os.path.join(TMPDIR, ".X11-unix", "X1")):
+        for path in (lock, os.path.join(X_TMP, ".X11-unix", f"X{DISPLAY[1:]}")):
             try:
                 os.remove(path)
             except OSError:
@@ -430,7 +542,7 @@ def _keeps_running(name: str, seconds: float = 2) -> bool:
 
 
 def _wait_display(seconds: float) -> bool:
-    sock = os.path.join(TMPDIR, ".X11-unix", "X1")
+    sock = os.path.join(X_TMP, ".X11-unix", f"X{DISPLAY[1:]}")
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if tracked_pid("xvfb") is None:
@@ -470,10 +582,19 @@ def start(progress: Progress | None = None) -> dict:
                            f"{width}x{height}x24", "-nolisten", "tcp", "-dpi", "96"])
         if not _wait_display(15):
             raise RemoteError("The remote screen (Xvfb) didn't start:\n" + _tail("xvfb"))
+        # before the desktop: it gives :1 the display modes XFCE expects
+        if tracked_pid("web") is None:
+            spawn("web", [sys.executable, REMOTE_SCRIPT, "serve", str(s.web_port), host, str(s.vnc_port)])
+        if not wait_port(host, s.web_port, 15):
+            raise RemoteError("The web viewer didn't start:\n" + _tail("web"))
         if tracked_pid("jwm") is None:
             write_jwmrc(s)
-            spawn("jwm", [os.path.join(PREFIX, "bin", "jwm"), "-f", JWMRC],
-                  env=anki_environment(remote=True))
+            if s.desktop == XFCE:
+                write_xfce_files()
+                spawn("jwm", [os.path.join(PREFIX, "bin", "dash"), XFCE_SCRIPT], env=xfce_environment())
+            else:
+                spawn("jwm", [os.path.join(PREFIX, "bin", "jwm"), "-f", JWMRC],
+                      env=anki_environment(remote=True))
 
         if not any(anki_display(pid) == DISPLAY for pid in anki_pids()):
             report("Moving Anki to the remote screen (Anki saves first)…", 0.3)
@@ -487,17 +608,10 @@ def start(progress: Progress | None = None) -> dict:
             subprocess.run([os.path.join(PREFIX, "bin", "x11vnc"), "-storepasswd", s.password,
                             PASSWD_FILE], stdout=null, stderr=null, check=True)
         os.chmod(PASSWD_FILE, 0o600)
-        listen = ["-localhost"] if host == "127.0.0.1" else ["-listen", host]
-        spawn("vnc", [os.path.join(PREFIX, "bin", "x11vnc"), "-display", DISPLAY,
-                      "-rfbport", str(s.vnc_port), *listen, "-rfbauth", PASSWD_FILE,
-                      # Android has no SysV shared memory for apps: x11vnc
-                      # would exit right after binding its port
-                      "-forever", "-shared", "-noipv6", "-noshm", "-xkb", "-ncache", "0", "-quiet"])
+        vnc = vnc_argv(s, host)
+        spawn("vnc", vnc)
         if not wait_port(host, s.vnc_port, 15) or not _keeps_running("vnc"):
             raise RemoteError("Screen sharing (x11vnc) didn't start:\n" + _tail("vnc"))
-        spawn("web", [sys.executable, NOVNC_SERVER, str(s.web_port), host, NOVNC_DIR, str(s.vnc_port)])
-        if not wait_port(host, s.web_port, 10):
-            raise RemoteError("The web viewer didn't start:\n" + _tail("web"))
     except Exception as err:
         _teardown(anki_back=moved_anki)
         if isinstance(err, RemoteError):
@@ -505,11 +619,22 @@ def start(progress: Progress | None = None) -> dict:
         raise RemoteError(str(err)) from err
 
     info = {"addresses": addresses(s, host), "password": s.password, "resolution": s.resolution,
-            "listen": s.listen, "started": time.time()}
+            "listen": s.listen, "started": time.time(), "vnc": vnc}
     with open(STATE_FILE, "w", encoding="utf-8") as fh:
         json.dump(info, fh)
     report("Remote session active", 1.0)
     return info
+
+
+def vnc_argv(s: Settings, host: str) -> list[str]:
+    listen = ["-localhost"] if host == "127.0.0.1" else ["-listen", host]
+    return [os.path.join(PREFIX, "bin", "x11vnc"), "-display", DISPLAY,
+            "-rfbport", str(s.vnc_port), *listen, "-rfbauth", PASSWD_FILE,
+            # Android has no SysV shared memory for apps: x11vnc would exit
+            # right after binding its port
+            "-forever", "-shared", "-noipv6", "-noshm", "-xkb", "-ncache", "0",
+            # follow screen size changes (display settings), and tell viewers
+            "-xrandr", "resize"]
 
 
 def stop(progress: Progress | None = None) -> None:
@@ -552,9 +677,67 @@ def _teardown(anki_back: bool) -> None:
         start_anki(remote=False)
 
 
+# The session's helper (the "web" process)
+######################################################################
+
+
+def _log(text: str) -> None:
+    print(time.strftime("%H:%M:%S"), text, flush=True)
+
+
+def keep_screen(ready) -> None:
+    import ankidesk_xscreen
+
+    try:
+        ankidesk_xscreen.keep(DISPLAY, log=_log, ready=ready)
+    except Exception as err:  # no RandR, a stand-in X server: only less help
+        _log(f"not watching the screen: {err!r}")
+    finally:
+        ready()
+
+
+def keep_vnc(stop=lambda: False, seconds: float = 2.0) -> None:
+    """Starts x11vnc again when it's gone while the session is up (it is
+    up once start() wrote the state, with x11vnc's command line)."""
+    restarts: list[float] = []
+    while not stop():
+        time.sleep(seconds)
+        _alive(0)  # reaps an x11vnc started here that exited
+        argv = state().get("vnc")
+        if not argv or tracked_pid("vnc") is not None:
+            continue
+        now = time.monotonic()
+        restarts = [t for t in restarts if now - t < VNC_RESTART_WINDOW]
+        if len(restarts) >= VNC_RESTARTS:
+            continue
+        restarts.append(now)
+        _log("x11vnc is gone: starting it again")
+        with open(_log_file("vnc"), "ab") as log:
+            log.write(f"\n--- {time.strftime('%H:%M:%S')} started again by the session helper\n".encode())
+        spawn("vnc", argv, append=True)
+
+
+def serve(web_port: int, host: str, vnc_port: int) -> None:
+    import threading
+
+    import ankidesk_novnc
+
+    ready = threading.Event()
+    threading.Thread(target=keep_screen, args=(ready.set,), daemon=True).start()
+    # the modes are there before the port opens, which start() waits for
+    ready.wait(10)
+    threading.Thread(target=keep_vnc, daemon=True).start()
+    ankidesk_novnc.serve(web_port, host, NOVNC_DIR, vnc_port)
+
+
 def _tail(name: str, lines: int = 8) -> str:
     try:
         with open(_log_file(name), encoding="utf-8", errors="replace") as fh:
             return "".join(fh.readlines()[-lines:]).strip()
     except OSError:
         return ""
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["serve"]:
+        serve(int(sys.argv[2]), sys.argv[3], int(sys.argv[4]))

@@ -90,6 +90,8 @@ TOUCH_MODE = os.path.join(theme.CONFIG_DIR, "touch-mode")
 BATTERY_STATE = os.path.join(theme.CONFIG_DIR, "battery-unrestricted")
 REMOTE_PAGE = 3
 REMOTE_GRADIENT = ("#93C5FD", "#4F46E5")
+# measured on a phone (2026-10-23): xfce4 + xfdesktop + fluent-gtk-theme
+XFCE_SIZE, XFCE_DOWNLOAD = "about 245 MB", "40 MB"
 STORAGE_STATE = menu.STORAGE_STATE
 STORAGE_DIR = menu.STORAGE_DIR
 
@@ -1221,6 +1223,18 @@ class Shell(QWidget):
                       self._set_remote("listen", remote.LOCAL),
                       "For a USB connection (adb forward) or testing", checked=s.listen == remote.LOCAL),
         ])
+        xfce = remote.xfce_installed()
+        desktop = [
+            self._row("monitor", REMOTE_GRADIENT, "Simple", self._set_remote("desktop", remote.SIMPLE),
+                      "Anki with a taskbar. Nothing to install", checked=s.desktop == remote.SIMPLE),
+            self._row("apps", ("#7DD3FC", "#0284C7"), "XFCE", self._choose_xfce,
+                      "A full Linux desktop: menu, panel, file manager, terminal" +
+                      ("" if xfce else f". Installs {XFCE_SIZE}"), checked=s.desktop == remote.XFCE),
+        ]
+        if xfce:
+            desktop.append(self._row("trash", ("#FCA5A5", "#DC2626"), "Remove XFCE", self._confirm_remove_xfce,
+                                     f"Frees about {XFCE_SIZE}"))
+        self._group(layout, "DESKTOP", desktop)
         self._group(layout, "SCREEN SIZE", [
             self._row("monitor", REMOTE_GRADIENT, size.replace("x", " × "), self._set_remote("resolution", size),
                       checked=s.resolution == size)
@@ -1230,6 +1244,34 @@ class Shell(QWidget):
             self._row("lock", ("#A78BFA", "#6D28D9"), s.password, self._new_remote_password,
                       f"Tap for a new one. Ports: {s.vnc_port} (VNC), {s.web_port} (web)"),
         ])
+
+    def _choose_xfce(self) -> None:
+        if remote.xfce_installed():
+            self._set_remote("desktop", remote.XFCE)()
+            return
+        self.sheet.ask(theme.app_tile("apps", dp(52), ("#7DD3FC", "#0284C7")), "Install XFCE?",
+                       f"A full Linux desktop for the remote screen, with the Fluent theme. It downloads "
+                       f"about {XFCE_DOWNLOAD} and uses {XFCE_SIZE} on the phone. The phone keeps its "
+                       "own desktop.", "Install", self._install_xfce)
+
+    def _install_xfce(self) -> None:
+        def done(result, error: str) -> None:
+            if error:
+                self.sheet.ask(theme.app_tile("apps", dp(52), ("#7DD3FC", "#0284C7")),
+                               "XFCE wasn't installed", error, "OK")
+            elif remote.xfce_installed():
+                self._set_remote("desktop", remote.XFCE)()
+                return
+            self._build_remote()
+
+        self._run_remote(remote.install_xfce, done)
+
+    def _confirm_remove_xfce(self) -> None:
+        self.sheet.ask(theme.app_tile("trash", dp(52), ("#FCA5A5", "#DC2626")), "Remove XFCE?",
+                       f"Frees about {XFCE_SIZE}. The remote screen goes back to the simple desktop; "
+                       "XFCE's settings are kept for next time.", "Remove",
+                       lambda: self._run_remote(remote.remove_xfce, lambda result, error: self._build_remote()),
+                       kind="danger")
 
     def _set_remote(self, key: str, value):
         def apply() -> None:

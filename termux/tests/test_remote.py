@@ -90,6 +90,26 @@ while True: time.sleep(0.1)
 """
 
 
+# XFCE's session: dbus-launch runs what follows --exit-with-session; startxfce4
+# records how it was started and runs until stopped, or quits at once when the
+# test "logs out" (xfce-logout)
+FAKE_DBUS_LAUNCH = """
+import os, subprocess, sys
+sys.exit(subprocess.call(sys.argv[sys.argv.index("--exit-with-session") + 1:]))
+"""
+
+FAKE_STARTXFCE4 = """
+import json, os, time
+tmp = os.environ["TMPDIR"]
+with open(os.path.join(tmp, "xfce.json"), "w") as fh:
+    json.dump({"pid": os.getpid(), "DISPLAY": os.environ.get("DISPLAY"),
+               "XDG_DATA_DIRS": os.environ.get("XDG_DATA_DIRS"),
+               "DBUS_SESSION_BUS_ADDRESS": os.environ.get("DBUS_SESSION_BUS_ADDRESS")}, fh)
+if not os.path.exists(os.path.join(tmp, "xfce-logout")):
+    while True: time.sleep(1)
+"""
+
+
 def free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -104,25 +124,22 @@ class RemoteTest(unittest.TestCase):
         os.environ.update({
             "PREFIX": prefix,
             "HOME": os.path.join(self.root, "home"),
-            "TMPDIR": os.path.join(self.root, "tmp"),
+            "TMPDIR": os.path.join(prefix, "tmp"),  # as in the app: X sockets are there
             "DISPLAY": ":0",
-            "ANKIDX_READY_FILE": os.path.join(self.root, "tmp", "ready"),
+            "ANKIDX_READY_FILE": os.path.join(prefix, "tmp", "ready"),
         })
-        for d in ("usr/bin", "usr/share/novnc", "home", "tmp", "ankidx"):
+        for d in ("usr/bin", "usr/share/novnc", "usr/tmp", "home", "ankidx"):
             os.makedirs(os.path.join(self.root, d), exist_ok=True)
         with open(os.path.join(prefix, "share/novnc/vnc.html"), "w") as fh:
             fh.write("<title>noVNC</title>")
         for name, code in (("Xvfb", FAKE_XVFB), ("jwm", FAKE_JWM), ("x11vnc", FAKE_X11VNC)):
             self._script(os.path.join(prefix, "bin", name), code)
-        shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ankidesk_novnc.py"),
-                    os.path.join(self.root, "ankidx"))
         self.launcher = os.path.join(self.root, "ankidx", "launch_anki.py")
         self._script(self.launcher, FAKE_ANKI)
 
         import ankidesk_remote
         self.r = importlib.reload(ankidesk_remote)
         self.r.LAUNCH_ANKI = self.launcher
-        self.r.NOVNC_SERVER = os.path.join(self.root, "ankidx", "ankidesk_novnc.py")
         self.r.ANKI_CLOSE_SECONDS = 5
         s = self.r.load_settings()
         s.listen = self.r.LOCAL
@@ -296,6 +313,109 @@ class RemoteTest(unittest.TestCase):
         for name in ("xvfb", "jwm", "vnc", "web"):
             self.assertIsNone(self.r.tracked_pid(name), name)
         self.assertFalse(os.path.exists(os.path.join(self.tmp, ".X11-unix", "X1")))
+
+    def test_x11vnc_comes_back_when_it_exits(self) -> None:
+        # what viewers reconnect to (noVNC does) after x11vnc died, e.g. on
+        # a screen change
+        self.r.start()
+        s = self.r.load_settings()
+        self.assertIn("-xrandr resize", self._read("vnc.args"))
+        first = self.r.tracked_pid("vnc")
+        os.kill(first, signal.SIGKILL)
+        deadline = time.monotonic() + 10
+        while self.r.tracked_pid("vnc") in (None, first):
+            if time.monotonic() > deadline:
+                self.fail("x11vnc wasn't started again")
+            time.sleep(0.2)
+        self.assertTrue(self.r.wait_port("127.0.0.1", s.vnc_port, 5))
+        with open(self.r._log_file("vnc")) as fh:
+            self.assertIn("started again", fh.read())
+
+        self.r.stop()
+        self.assertIsNone(self.r.tracked_pid("vnc"))
+        time.sleep(3)  # and nothing starts it after the session ended
+        self.assertIsNone(self.r.tracked_pid("vnc"))
+
+    def test_the_helper_is_up_before_the_desktop(self) -> None:
+        # it adds the display modes the desktop reads when it starts
+        self.r.start()
+        web = self.r.tracked_pid("web")
+        self.assertEqual(self.r._cmdline(web)[-4:-3], ["serve"])
+        def started(name: str) -> int:  # in clock ticks since boot
+            with open(f"/proc/{self.r.tracked_pid(name)}/stat") as fh:
+                return int(fh.read().rsplit(")", 1)[1].split()[19])
+        self.assertLessEqual(started("web"), started("jwm"))
+        self.r.stop()
+
+    # XFCE as the remote desktop
+    ##################################################################
+
+    def _fake_xfce(self) -> None:
+        bin_ = os.path.join(os.environ["PREFIX"], "bin")
+        os.symlink("/system/bin/sh" if os.path.exists("/system/bin/sh") else "/bin/sh", os.path.join(bin_, "dash"))
+        self._script(os.path.join(bin_, "dbus-launch"), FAKE_DBUS_LAUNCH)
+        self._script(os.path.join(bin_, "startxfce4"), FAKE_STARTXFCE4)
+        self._script(os.path.join(bin_, "xfdesktop"), "")
+        os.environ["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/phone/desktop/bus"
+        s = self.r.load_settings()
+        s.desktop = self.r.XFCE
+        self.r.save_settings(s)
+
+    def _wait_file(self, name: str) -> str:
+        deadline = time.monotonic() + 10
+        while not os.path.exists(os.path.join(self.tmp, name)):
+            if time.monotonic() > deadline:
+                self.fail(f"{name} never appeared")
+            time.sleep(0.1)
+        time.sleep(0.2)
+        return self._read(name)
+
+    def test_xfce_needs_installing(self) -> None:
+        S = self.r.Settings
+        self.assertIn("install", S(password="abcdefgh", desktop=self.r.XFCE).problem())
+        self.assertIsNotNone(S(password="abcdefgh", desktop="moon").problem())
+        self.assertEqual(S().desktop, self.r.SIMPLE)
+
+    def test_xfce_desktop_starts_and_stops_with_the_session(self) -> None:
+        self._fake_xfce()
+        self.r.start()
+        self._wait_anki(":1")
+        xfce = json.loads(self._wait_file("xfce.json"))
+        self.assertEqual(xfce["DISPLAY"], ":1")
+        self.assertTrue(xfce["XDG_DATA_DIRS"].startswith(self.r.XFCE_DATA + ":"))
+        self.assertIsNone(xfce["DBUS_SESSION_BUS_ADDRESS"])  # its own bus, not the phone's
+        with open(os.path.join(self.r.XFCE_DATA, "applications", "kioku-anki.desktop")) as fh:
+            self.assertIn(self.launcher, fh.read())
+        xsettings = os.path.join(os.environ["HOME"], ".config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml")
+        with open(xsettings) as fh:
+            self.assertIn(self.r.XFCE_THEME, fh.read())
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "jwm.args")))
+
+        self.r.stop()
+        # the whole session tree is gone, not only the script that started it
+        self.assertFalse(self.r._alive(xfce["pid"]))
+        self.assertFalse(self.r.is_active())
+
+    def test_xfce_settings_are_written_once(self) -> None:
+        self._fake_xfce()
+        xsettings = os.path.join(os.environ["HOME"], ".config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml")
+        os.makedirs(os.path.dirname(xsettings))
+        with open(xsettings, "w") as fh:
+            fh.write("chosen in XFCE")
+        self.r.write_xfce_files()
+        self.assertEqual(self._read_path(xsettings), "chosen in XFCE")
+
+    def _read_path(self, path: str) -> str:
+        with open(path) as fh:
+            return fh.read()
+
+    def test_xfce_log_out_leaves_the_plain_taskbar(self) -> None:
+        self._fake_xfce()
+        open(os.path.join(self.tmp, "xfce-logout"), "w").close()
+        self.r.start()
+        self.assertTrue(self._wait_file("jwm.args").startswith(":1 -f "))
+        self.r.stop()
+        self.assertIsNone(self.r.tracked_pid("jwm"))
 
     def test_start_without_anki_open_starts_it_remotely(self) -> None:
         self.r.start()

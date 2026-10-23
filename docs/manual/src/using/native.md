@@ -35,6 +35,16 @@
 - Keyboard shortcuts work with a hardware keyboard (Space to show the answer,
   1–4 to answer, as in [Anki](https://docs.ankiweb.net/studying.html#keyboard-shortcuts)).
 
+## Full screen
+
+**View › Full Screen** hides the menu bar (and the status bar) for more room.
+To leave it, **swipe right** on the screen and tap **Exit Full Screen**
+(or **Cancel** to stay in full screen).
+Kioku reminds you of this for a few seconds when you enter full screen.
+On a page that scrolls sideways, scroll it back to its left edge first.
+
+<img src="../images/ios-full-screen.png" width="200" alt="Full screen: after a swipe right, Kioku asks Exit full screen? with Cancel and Exit Full Screen">
+
 ## Keyboard
 
 The on-screen keyboard opens when you tap a text field and closes when you

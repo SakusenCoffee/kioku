@@ -56,6 +56,7 @@ def apply() -> None:
     _patch_profile_saving()
     _patch_bar_heights()
     _patch_review_menu()
+    _patch_full_screen()
     _patch_splitters()
     _patch_update_check()
 
@@ -310,6 +311,12 @@ def _patch_review_menu() -> None:
         update()
 
     gui_hooks.main_window_did_init.append(lambda: setup(aqt.mw))
+
+
+def _patch_full_screen() -> None:
+    from . import fullscreen
+
+    fullscreen.apply()
 
 
 def _patch_splitters() -> None:

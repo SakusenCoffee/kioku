@@ -456,3 +456,22 @@ crash reports.
 | 5 (also `os._exit` after `aqt.run()`) | ✅ 22/22; Quit (`unloadProfileAndExit`) ends the app without a crash report |
 
 The sweep can't run on BrowserStack (no `devcmd` there): iOS 18 is checked by hand there.
+
+## Release check for 0.2.2 (2026-10-23)
+
+Host tests: 68 passing. Samsung M30s (Android 11), build from `d3ebc69`
+installed over the old one (data kept), profile User 1 (258,430 cards):
+
+| Test | Result |
+| --- | --- |
+| Start-up, collection opens | ✅ |
+| `sweep.sh`: 12 windows full screen, nothing wider than the screen | ✅ |
+| Reviewing: question, answer; Edit menu has Edit Current and More | ✅ |
+| `{{tts}}` player: Samsung engine, 4 voices | ✅ |
+| Sync server: start, HTTP 200 from `http://127.0.0.1:8080/health`, stop (setting not saved) | ✅ |
+| Browse: search typed with the keyboard, Enter runs it | ✅ |
+| Home, then back from the launcher | ✅ |
+| File › Switch Profile, then Back: last profile reopens | ✅ |
+| File › Exit: process ends, no crash in logcat; relaunch works | ✅ |
+
+Not repeated on a device this round: iOS, Termux variant, AnkiDroid's media.

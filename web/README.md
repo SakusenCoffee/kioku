@@ -21,7 +21,8 @@ IndexedDB across reloads. Dialogs that block (`QDialog.exec()`) and
 collection work on background threads behave like on the desktop.
 
 Sync with AnkiWeb or a self-hosted server works through a WebSocket→TCP
-relay in `tools/serve.py`. Missing: serving from anywhere but
+relay in `tools/serve.py`; so do add-ons (Get Add-ons, Python HTTPS
+through OpenSSL built for wasm). Missing: serving from anywhere but
 `127.0.0.1`. See [HANDOFF.md](HANDOFF.md)
 for what to do next.
 
@@ -38,8 +39,9 @@ Python 3.14, Ninja and Chrome.
 
 ```sh
 tools/fetch_deps.sh      # Emscripten 4.0.7, Qt 6.11 for WebAssembly
-tools/build_python.sh    # CPython 3.14 for Emscripten (patched)
+tools/build_python.sh    # CPython 3.14 for Emscripten (patched; builds OpenSSL first)
 tools/build_rust.sh      # Anki's Rust core for wasm32-unknown-emscripten
+tools/build_rpds.sh      # rpds-py (jsonschema, add-on manifests)
 tools/gen_pyqt.sh        # PyQt6 bindings for Qt for WebAssembly
 tools/prepare_site.sh    # Anki's Python packages
 tools/build.sh           # build/cmake: kioku.wasm, app.html, sw.js, ...

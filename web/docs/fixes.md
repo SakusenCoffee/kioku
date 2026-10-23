@@ -82,4 +82,9 @@ is unchanged.
 | TLS would fail with no roots | rustls with native roots finds no system store in the wasm file system | `SSL_CERT_FILE` = `/site/certifi/cacert.pem` before Anki starts |
 | `col.sync_login()` from the main thread never returned | the main thread blocked in Rust; WebSocket events need it back in the browser's event loop | network calls on background threads (as Anki's sync UI does) |
 | A Python-only change took a 5-minute relink | the app's Python was `--preload-file`d at link time | `tools/pack_app.sh` packs it into `app.data` (loader `app-data.js` linked once with `--pre-js`, file list in `app-data.js.metadata`) on every build |
+| Installing an add-on failed (`No module named 'rpds'`) | jsonschema (manifest check) → referencing → rpds-py, a Rust extension | `tools/build_rpds.sh` builds it for wasm, registered as built-in `rpds` |
+| `rpds.HashTrieMap({...})` crashed (memory access out of bounds) | built with Kioku's abi3 (3.9) pyo3 config | built against the real interpreter: `tools/pyo3/cp314-wasm32.cfg` (3.14, 32-bit) |
+| HyperTTS: `No module named '_ssl'`; Get Add-ons impossible | CPython built without OpenSSL; libffi's `.pc` still pointed at the repo's old folder, so that rebuild failed too | `tools/build_openssl.sh` (OpenSSL 3.5.4, `-pthread`), CPython `--with-openssl`, `libssl.a`/`libcrypto.a` linked; `.pc` prefixes fixed |
+| requests: `[Errno 50] Protocol not available` | Emscripten's sockets reject `setsockopt(TCP_NODELAY)` and `getsockopt(SO_TYPE)` (ssl) | `kioku_platform._ignore_socket_options()` |
+| requests: read timeout at once | Emscripten's `poll()` ignores its timeout | `-Wl,--wrap=poll`: worker threads re-poll every 2 ms until the timeout (`src/main.cpp`) |
 | File › Import had no file picker | `pick_files` was a stub | `<input type=file>` opened from the triggering click, files copied into the wasm file system |

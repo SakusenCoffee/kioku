@@ -29,6 +29,7 @@ def prepare() -> None:
     # roots for rustls (reqwest with native roots, which reads this file):
     # the wasm file system has no system store
     os.environ.setdefault("SSL_CERT_FILE", "/site/certifi/cacert.pem")
+    _ignore_socket_options()
     web.start()
     http.setup(int(web.js("port")))
     _fill_screen()
@@ -72,6 +73,42 @@ def _fill_screen() -> None:
 
     gui_hooks.main_window_did_init.append(init)
     gui_hooks.profile_did_open.append(fit_soon)
+
+
+def _ignore_socket_options() -> None:
+    """Emscripten's sockets (WebSockets to the relay) support almost no
+    socket options and fail with ENOPROTOOPT; urllib3 sets TCP_NODELAY on
+    every connection, and ssl asks for SO_TYPE, so requests (add-on
+    downloads) failed. Setting options is only a hint here: skip them;
+    SO_TYPE is the socket's own type."""
+    import errno
+    import socket
+
+    setsockopt = socket.socket.setsockopt
+
+    def quiet_setsockopt(self: socket.socket, *args: Any) -> None:
+        try:
+            setsockopt(self, *args)
+        except OSError as e:
+            if e.errno != errno.ENOPROTOOPT:
+                raise
+
+    getsockopt = socket.socket.getsockopt
+
+    def known_getsockopt(self: socket.socket, level: int, option: int, *args: Any) -> Any:
+        try:
+            return getsockopt(self, level, option, *args)
+        except OSError as e:
+            if e.errno == errno.ENOPROTOOPT and (level, option, args) == (
+                socket.SOL_SOCKET,
+                socket.SO_TYPE,
+                (),
+            ):
+                return int(self.type)
+            raise
+
+    socket.socket.setsockopt = quiet_setsockopt  # type: ignore[method-assign]
+    socket.socket.getsockopt = known_getsockopt  # type: ignore[method-assign]
 
 
 def _save_after_changes() -> None:

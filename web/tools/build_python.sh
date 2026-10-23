@@ -14,7 +14,9 @@ fi
 cd "$PY"
 P() { python3.14 Tools/wasm/emscripten "$@"; }
 P configure-build-python && P make-build-python && P make-libffi && P make-mpdec
-P configure-host -- --enable-wasm-pthreads --disable-wasm-dynamic-linking
+"$ROOT/tools/build_openssl.sh"  # ssl, hashlib
+P configure-host -- --enable-wasm-pthreads --disable-wasm-dynamic-linking \
+    --with-openssl="$PY/cross-build/wasm32-emscripten/prefix"
 P make-host || true  # its own node smoke run fails; the static library is what we need
 rsync -a --delete --exclude __pycache__ --exclude test --exclude tests --exclude idlelib \
     --exclude tkinter --exclude turtledemo --exclude ensurepip --exclude pydoc_data \

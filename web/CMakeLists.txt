@@ -36,8 +36,9 @@ target_link_libraries(kioku PRIVATE
     pyqt6_QtCore pyqt6_QtGui pyqt6_QtWidgets pyqt6_QtNetwork pyqt6_QtSvg
     pyqt6_sip
     ${CMAKE_SOURCE_DIR}/build/rust-target/wasm32-unknown-emscripten/release/librsbridge.a
+    ${CMAKE_SOURCE_DIR}/build/rust-target-rpds/wasm32-unknown-emscripten/release/librpds.a
     ${CPY_BUILD}/libpython3.14.a ${CPY_BUILD}/Modules/expat/libexpat.a ${HACL_OBJECTS}
-    ${PREFIX}/lib/libmpdec.a ${PREFIX}/lib/libffi.a
+    ${PREFIX}/lib/libmpdec.a ${PREFIX}/lib/libffi.a ${PREFIX}/lib/libssl.a ${PREFIX}/lib/libcrypto.a
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg
 )
 option(KIOKU_ASYNCIFY "Link with Asyncify (nested event loops)" OFF)
@@ -49,7 +50,7 @@ endif()
 # (the worker can only start when the main thread yields): pre-create enough
 set_target_properties(kioku PROPERTIES QT_WASM_PTHREAD_POOL_SIZE 32)
 target_link_options(kioku PRIVATE
-    -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM -lidbfs.js
+    -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM -lidbfs.js -Wl,--wrap=poll
     "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/shell/storage.js"
     "SHELL:--pre-js ${CMAKE_BINARY_DIR}/app-data.js"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/stdlib@/python/lib/python3.14"

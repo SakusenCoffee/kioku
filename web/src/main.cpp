@@ -7,6 +7,9 @@
 #include <emscripten/threading.h>
 #include <emscripten/val.h>
 
+#include <poll.h>
+#include <unistd.h>
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -19,6 +22,24 @@ PyObject *PyInit_QtWidgets(void);
 PyObject *PyInit_QtNetwork(void);
 PyObject *PyInit_QtSvg(void);
 PyObject *PyInit__rsbridge(void);
+PyObject *PyInit_rpds(void);
+}
+
+// Emscripten's poll() ignores its timeout and returns at once, so a socket
+// wait with a timeout (CPython's sockets: ssl handshakes, requests) gave up
+// before the relay's data arrived. Linked with --wrap=poll: worker threads
+// poll again every 2 ms until something is ready or the timeout passes; the
+// main thread can't sleep and keeps the plain call.
+extern "C" int __real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
+extern "C" int __wrap_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+    int ready = __real_poll(fds, nfds, 0);
+    if (ready != 0 || timeout == 0 || emscripten_is_main_runtime_thread()) return ready;
+    double end = emscripten_get_now() + timeout;
+    while (ready == 0 && (timeout < 0 || emscripten_get_now() < end)) {
+        usleep(2000);
+        ready = __real_poll(fds, nfds, 0);
+    }
+    return ready;
 }
 
 // _kioku_web: what kioku_platform needs from the page (shell/kioku-web.js)
@@ -125,6 +146,7 @@ int main(int argc, char *argv[]) {
     PyImport_AppendInittab("PyQt6.QtNetwork", PyInit_QtNetwork);
     PyImport_AppendInittab("PyQt6.QtSvg", PyInit_QtSvg);
     PyImport_AppendInittab("anki._rsbridge", PyInit__rsbridge);
+    PyImport_AppendInittab("rpds", PyInit_rpds);
     PyImport_AppendInittab("_kioku_web", PyInit__kioku_web);
     kioku_install_js();
 

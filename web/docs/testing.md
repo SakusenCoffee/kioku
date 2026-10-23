@@ -89,3 +89,37 @@ Local server: Anki's `anki-sync-server` built from Kioku's Anki source
 | AnkiWeb (test account, fresh profile): `sync_collection` → full sync required → `full_download` | ✅ 20,858 notes, 39,754 cards, 9 decks, ~3 s; never uploaded |
 | `full_download` without a normal sync first | ⚠️ AnkiWeb 400 "missing original size" (skips `meta`, which picks the endpoint; Anki's UI never does this) |
 | Firefox, Safari, a phone browser | ⏳ not tested (`moveBefore()` and JSPI-free Asyncify should work; COOP/COEP needed everywhere) |
+
+### 2026-10-24 d: add-ons (Chrome 155, headless)
+
+The 14 add-ons from Kioku's iOS/Android tests, downloaded on the host
+(`https://ankiweb.net/shared/download/<id>?v=2.1&p=260903`), written into
+the wasm file system and installed with `addonManager.install(path,
+manifest=dict(package=<id>, …))` as Get Add-ons does (folder = AnkiWeb id;
+HyperTTS finds its config only that way). Error dialogs at start dismissed
+with Enter.
+
+| Add-on | Code | Result |
+| --- | --- | --- |
+| Speed Focus Mode | 1046608507 | loads |
+| Color Confirmation | 1084228676 | loads |
+| HyperTTS | 111623432 | loads (after `_ssl`); panel on the deck list; Configure Services window opens; HyperTTS menu in Browse |
+| Review Heatmap | 1771074083 | loads; heatmap section on the deck list ("No activity data" without reviews) |
+| Fill the blanks | 1933645497 | loads |
+| AnkiConnect | 2055492159 | loads; its server can't start (`socket` has no `SO_REUSEADDR`; a page can't accept connections): expected, its error dialog holds up add-on loading until closed |
+| Customize Keyboard Shortcuts | 24411424 | loads (deprecation warnings) |
+| AnkiWebView Inspector | 31746032 | loads (needs Qt WebEngine dev tools: the browser's own dev tools instead) |
+| Edit Field During Review Cloze | 385888438 | loads |
+| Colorful Tags | 594329229 | loads |
+| True Retention | 613684242 | loads |
+| Anki Simulator | 817108664 | loads |
+| Advanced Browser | 874215009 | loads; Browse opens |
+| AnKing Notetypes | 952691989 | loads; AnKing menu |
+
+| Test | Result |
+| --- | --- |
+| Install from .ankiaddon (jsonschema manifest check) | ✅ after building rpds-py for wasm |
+| Python HTTPS (`requests.get` ankiweb.net through the relay) | ✅ 200 (after `_ssl`, the socket option and `poll()` fixes) |
+| Tools › Add-ons › Get Add-ons code path (`download_addons`, Review Heatmap 1771074083) | ✅ downloaded and installed from AnkiWeb |
+| Add-ons still there after a reload | ✅ (`addons21` is under the saved folder) |
+

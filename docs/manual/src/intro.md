@@ -4,6 +4,8 @@ Kioku (記憶, "memory") runs the **unmodified Anki desktop app** on iPhone,
 iPad and Android: the same deck list, reviewer, Browse, editors, statistics
 and desktop add-ons, made to work with a touch screen.
 
+**On an iPhone:**
+
 <img src="images/strip-ios.png" alt="Kioku on iPhone: deck list, reviewing, Browse">
 
 ## This manual and Anki's manual

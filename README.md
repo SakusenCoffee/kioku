@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-iOS-0.2.2-unsigned.ipa"><img alt="Download for iOS" src="https://img.shields.io/badge/iOS-IPA-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Android-0.2.2-arm64.apk"><img alt="Download for Android (native)" src="https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Termux-0.2.2-arm64.apk"><img alt="Download for Android (Termux)" src="https://img.shields.io/badge/Termux-APK-2563EB?style=for-the-badge&logo=gnubash&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-iOS-0.2.2-unsigned.ipa"><img alt="Download for iOS" src="https://img.shields.io/badge/Download%20for-iOS-000000?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Android-0.2.2-arm64.apk"><img alt="Download for Android (native)" src="https://img.shields.io/badge/Download%20for-Android-1E7F3C?labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Termux-0.2.2-arm64.apk"><img alt="Download for Android (Termux)" src="https://img.shields.io/badge/Download%20for-Termux-2563EB?labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -48,12 +48,15 @@ for "memory".)
 | **Extras** | sync server on the phone | sync server, AnkiDroid's media | Linux apps on demand, remote desktop |
 | **Install** | [AltStore or sideload](https://krmanik.github.io/kioku/install/ios.html) | [APK](https://krmanik.github.io/kioku/install/android.html) | [APK](https://krmanik.github.io/kioku/install/termux.html) |
 
+<h3 align="center">iPhone and iPad</h3>
 <p align="center">
   <img src="docs/images/strip-ios.png" alt="iPhone: deck list, reviewing a Chinese card, reviewing a NeetCode card and Browse">
 </p>
+<h3 align="center">Android, native</h3>
 <p align="center">
   <img src="docs/images/strip-android.png" alt="Native Android: deck list, reviewing a Chinese card, Browse and Statistics">
 </p>
+<h3 align="center">Android, Termux</h3>
 <p align="center">
   <img src="docs/images/strip-termux.png" alt="Termux variant: the Kioku desktop, the deck list, reviewing a card and the Software page">
 </p>

@@ -16,6 +16,7 @@ TEAM=${KIOKU_TEAM:-}
 QT=$ROOT/deps/qt/$QT_VERSION
 
 "$ROOT/tools/fetch_deps.sh"
+"$ROOT/tools/build_qt_plugin.sh"
 "$ROOT/tools/build_rust.sh" aarch64-apple-ios
 "$ROOT/tools/gen_pyqt.sh" > /dev/null
 "$ROOT/../shared/tools/prepare_site.sh" "$ROOT/.venv/bin/python" "$ROOT/deps/sdist" "$ROOT/build/site"

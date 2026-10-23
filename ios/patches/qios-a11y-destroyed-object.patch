@@ -1,0 +1,48 @@
+From d6a6429906d311b0fdf84a3517937c93c741613c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tor=20Arne=20Vestb=C3=B8?= <tor.arne.vestbo@qt.io>
+Date: Fri, 25 Sep 2026 15:37:14 +0200
+Subject: [PATCH] iOS: Don't try to read role of destroyed a11y object
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A destroyed or in-destructor QObject will reflect !isValid(), and will
+crash if its role() is implemented by dereferencing the a11y object
+without a isValid() guard of its own in role(). This is for example
+the case with QAccessibleButton.
+
+Pick-to: 6.12 6.8
+Change-Id: Ib283de262b37275346384d81d4092b9fde6b3cc9
+Reviewed-by: Morten Johan Sørvig <morten.sorvig@qt.io>
+---
+ src/plugins/platforms/ios/qiosplatformaccessibility.mm | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/platforms/ios/qiosplatformaccessibility.mm b/src/plugins/platforms/ios/qiosplatformaccessibility.mm
+index 169c590ffd98..edd21dc422f5 100644
+--- a/src/plugins/platforms/ios/qiosplatformaccessibility.mm
++++ b/src/plugins/platforms/ios/qiosplatformaccessibility.mm
+@@ -92,7 +92,6 @@ void invalidateCache(QAccessibleInterface *iface)
+     case QAccessible::ObjectCreated:
+     case QAccessible::ObjectShow:
+     case QAccessible::ObjectHide:
+-    case QAccessible::ObjectDestroyed:
+         invalidateCache(accessibleInterface);
+         switch (accessibleInterface->role()) {
+         case QAccessible::Window:
+@@ -105,6 +104,15 @@ void invalidateCache(QAccessibleInterface *iface)
+             UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+         }
+         break;
++    case QAccessible::ObjectDestroyed:
++        invalidateCache(accessibleInterface);
++        // It would be nice if we could read the role from an
++        // destroyed a11y object, to check whether the object was
++        // a window or dialog before it was destroyed, but we can't
++        // trust that doing so won't try to read the object itself.
++        // Instead of unconditionally posting a screen change here,
++        // we assume that anything that is destroyed is hidden first.
++        break;
+     default:
+         break;
+     }

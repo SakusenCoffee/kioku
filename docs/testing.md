@@ -415,3 +415,22 @@ Results in [termux/docs/remote-desktop.md](../termux/docs/remote-desktop.md#test
 emulator (VNC viewer and noVNC in Chrome, Anki moved there and back with a change
 made remotely, battery prompt, locks, Power off). Fixes in
 [fixes.md](fixes.md#remote-desktop-termux-variant).
+
+## VoiceOver / first-run crash on iPadOS (2026-10-23)
+
+GitHub issue: Kioku closed right after confirming the language on first
+run (iPad, iPadOS 18.7.8, LiveContainer and SideStore). Fix in
+[fixes.md](fixes.md#runtime-platform) (Qt's iOS plugin, `qios-a11y-destroyed-object.patch`).
+
+| Test | Result |
+| --- | --- |
+| BrowserStack App Live, iPad (iPadOS 18), dev-signed IPA, first run | ❌ before the fix: closed after Yes; same log as the issue |
+| BrowserStack App Live, iPhone, first run | ❌ before the fix: same |
+| iPhone 15 Pro Max (iOS 27.0.1), fresh install, VoiceOver off | ✅ (no accessibility events at all) |
+| Same, VoiceOver on, before the fix | ❌ `Kioku-2026-10-23-082234.ips`: `EXC_BAD_ACCESS` in `QAccessibleButton::role` from `notifyAccessibilityUpdate` while the "Are you sure?" box is destroyed |
+| Same, VoiceOver on, patched `libqios.a`, tapped by hand | ✅ language chosen, main window, no crash report |
+| Same again from a fresh install, scripted (devcmd), VoiceOver checked on before each step | ✅ OK → "Are you sure?" → Yes → main window; Preferences opened and closed; a message box shown and closed with OK; 53 accessibility events, no new crash report |
+| "My Mac (Designed for iPad)" | not usable for this: builds, but a development-signed iOS app can't be launched from the command line (Gatekeeper "damaged", or "Terminated due to code signing error" under lldb); only Xcode's Run does |
+
+The patched build exports the same symbols as Qt's object, and the linked
+app's `notifyAccessibilityUpdate` is the patched one (169 instructions, 144 in Qt's).

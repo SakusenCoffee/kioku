@@ -495,3 +495,54 @@ Test mistake: cleaning up the test profile with `mw.pm.remove(name)` deleted
 the *loaded* profile's folder (Anki's `remove` ignores `name` for the folder,
 and on Android falls back from the trash to `rmtree`). User 1 was restored
 from its `.colpkg` (258,430 cards, 27,195 media files).
+
+## AMBOSS add-on, full screen, update prompt (2026-10-23)
+
+From an iPad report (iPadOS 18.7.8, iPad13,4): AMBOSS login failed, View ›
+Full Screen could not be left, the "Anki updated" prompt at first start.
+Host tests: 74 passing (new: `test_webengine.py`, `test_mainsplit.py`).
+Android APK builds; not run on Android this round (no device attached).
+
+iPhone 15 Pro Max (iOS 27.0.1), AMBOSS add-on 1044112126, test account:
+
+| Test | Result |
+| --- | --- |
+| Add-on loads without an error; AMBOSS menu, toolbar button, Qbank widget on the deck list | ✅ |
+| Login dialog: email + password, Log in → token stored, "Mobile Support" prompt (answered Not now: Yes rewrites card templates) | ✅ |
+| Side panel opens on `next.amboss.com` logged in (auth cookie reached WKWebView) | ✅ |
+| Side panel, portrait: stacked under the deck list, ▲ expands it to the full height, ▼ splits again | ✅ |
+| Cookie banner in the panel: Reject all | ✅ |
+| Sample deck "AMBOSS Test" (20 medical cards, `build-testdata/amboss/`): terms underlined while reviewing | ✅ |
+| Term pop-up (ADPKD): fits the screen width, images scaled, scrolls down to its end | ✅ |
+| Top bar: Decks, Add, Browse, Stats, Sync and the AMBOSS button in one row | ✅ |
+
+Also on the iPhone, full screen: the strip above the top bar highlighted
+with an arrow to Anki's tooltip, its text whole (screenshot in the manual,
+`using/native.md`, AMBOSS disabled for it); a real finger tap on the strip
+left full screen (seen in the event log); scripted taps on the highlight and
+the strip leave it; one View › Full Screen enters it again. Host tests: 77.
+
+Not tested: an iPad (the side-by-side layout is host-tested only, and the
+narrow-screen CSS applies under 600 px only), a real finger tap on a term
+(a scripted hover was used), the update prompt at a fresh first start. The
+login was lost once when a reinstall killed the app in the foreground: Kioku
+saves the profile when the app leaves the foreground, as a user's app would.
+
+Later the same day full screen changed: the strip margin (24 pt where the
+safe area was smaller, which moved the view on an iPad), the tap above the
+top bar and the highlight are gone. A swipe to the right on any page opens a
+confirmation, Exit Full Screen or Cancel (a long press on the bottom bar was tried first
+and dropped: it could press the button under the finger). iPhone 15 Pro
+Max, build 7, synthetic touch events in the page:
+
+| Test | Result |
+| --- | --- |
+| Enter full screen: menu bar hidden, layout unchanged, tooltip "Swipe right to exit full screen" | ✅ |
+| Swipe right on the deck list, the review card, the bottom bar → "Exit full screen?" centred as a card, the hint tooltip closed | ✅ |
+| Exit Full Screen leaves it; Cancel stays; one View › Full Screen enters it again | ✅ |
+| Swipe left, vertical swipe, swipe right outside full screen: nothing | ✅ |
+| Swipe right while the page can still scroll that way: the page scrolls, no dialog (the deck list is 18 px wider than the screen with AMBOSS's Qbank widget) | ✅ |
+
+Screenshot of the dialog in the manual (`using/native.md`). Host tests: 79.
+Not tested: a real finger swipe, an iPad (IPA build 7 for
+BrowserStack), Android.

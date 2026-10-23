@@ -111,17 +111,20 @@ def main():
         sys.exit(f"unresolvable: {sorted(missing)}")
 
     total = 0
+    wanted = set()
     for name in sorted(seen):
         fields = pkgs[name]
         if name in skip:
             continue
         if "_local" in fields:
             dest = os.path.join(a.out, os.path.basename(fields["_local"]))
+            wanted.add(os.path.basename(dest))
             with open(fields["_local"], "rb") as src, open(dest, "wb") as dst:
                 dst.write(src.read())
             print(f"local {name} {fields['Version']}")
             continue
         dest = os.path.join(a.out, os.path.basename(fields["Filename"]))
+        wanted.add(os.path.basename(dest))
         want = fields["SHA256"]
         if not (os.path.exists(dest) and hashlib.sha256(open(dest, "rb").read()).hexdigest() == want):
             data = fetch(REPO_BASE[fields["_repo"]] + fields["Filename"])
@@ -130,6 +133,11 @@ def main():
             with open(dest, "wb") as fh:
                 fh.write(data)
         total += int(fields.get("Size", 0))
+    # Older versions left from earlier runs would be unpacked too, by tools/debs_to_prefix.py.
+    for f in os.listdir(a.out):
+        if f.endswith(".deb") and f not in wanted:
+            os.remove(os.path.join(a.out, f))
+            print(f"removed stale {f}")
     print(f"{len(seen)} packages ({len(seen & skip)} skipped), {total / 2**20:.0f} MiB from repos -> {a.out}")
 
     if a.list:

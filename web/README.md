@@ -15,11 +15,12 @@ reload yet.
 Works: first-run dialogs, profile creation, the main window; the deck list,
 deck overview, reviewer (with Anki's keyboard shortcuts), Add (the editor),
 Import (.apkg through the browser's file picker), Browse, Stats, Check
-Database. Dialogs that block (`QDialog.exec()`) and collection work on
-background threads behave like on the desktop.
+Database, export (as a browser download), card audio and `{{tts}}` (Web
+Speech API). Profiles, collections and media are kept in the browser's
+IndexedDB across reloads. Dialogs that block (`QDialog.exec()`) and
+collection work on background threads behave like on the desktop.
 
-Missing: data lives in memory and is gone after a reload; no AnkiWeb sync;
-no audio or TTS; export downloads are untested. See [HANDOFF.md](HANDOFF.md)
+Missing: AnkiWeb sync; serving from anywhere but `127.0.0.1`. See [HANDOFF.md](HANDOFF.md)
 for what to do next.
 
 Download: `kioku.wasm` 94 MB (18.5 MB with brotli), `kioku.data` 34 MB

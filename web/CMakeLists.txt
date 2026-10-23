@@ -49,7 +49,8 @@ endif()
 # (the worker can only start when the main thread yields): pre-create enough
 set_target_properties(kioku PROPERTIES QT_WASM_PTHREAD_POOL_SIZE 32)
 target_link_options(kioku PRIVATE
-    -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM
+    -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM -lidbfs.js
+    "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/shell/storage.js"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/stdlib@/python/lib/python3.14"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/site@/site"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/app/probe.py@/app/probe.py"

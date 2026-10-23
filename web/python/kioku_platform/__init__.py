@@ -1,7 +1,7 @@
 """Web platform layer for the shared kioku package: Anki's pages in
 <iframe>s served through a service worker (webview.py, http.py), files
-through the browser (files.py). Paths live in Emscripten's in-memory file
-system; audio and TTS are not there yet.
+through the browser (files.py), audio and TTS through the page (audio.py).
+/home/web_user is kept in IndexedDB (src/main.cpp kioku_load_storage).
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ def prepare() -> None:
     web.start()
     http.setup(int(web.js("port")))
     _fill_screen()
+    _save_after_changes()
     if dev_allowed():
         web.listen("devexec", _devexec)
 
@@ -70,6 +71,15 @@ def _fill_screen() -> None:
     gui_hooks.profile_did_open.append(fit_soon)
 
 
+def _save_after_changes() -> None:
+    """Save the files to IndexedDB (shell/storage.js) after collection
+    changes, besides the page's timer."""
+    from aqt import gui_hooks
+
+    gui_hooks.operation_did_execute.append(lambda *_: web.js("persist"))
+    gui_hooks.profile_will_close.append(lambda: web.js("persist"))
+
+
 def _devexec(event: dict) -> None:
     """Development: run Python sent from the page's console with
     __kiokuWeb.post({type: "devexec", code: "..."}); `result` is printed."""
@@ -108,11 +118,15 @@ def open_folder(path: str) -> None:
 
 
 def audio_player(taskman: Any, media_folder: str) -> Any:
-    return None
+    from .audio import WebAudioPlayer
+
+    return WebAudioPlayer(taskman, media_folder)
 
 
 def tts_player(taskman: Any) -> Any:
-    return None
+    from .audio import WebSpeechPlayer
+
+    return WebSpeechPlayer()
 
 
 def keep_awake() -> None:

@@ -10,7 +10,9 @@
 - **The app (headless Chrome):** `python3 tools/serve.py build/cmake 8765`,
   then `cd tools/test && npm install` once and
   `node boot.mjs '<steps>'` (steps documented at the top of `boot.mjs`). Each
-  run starts a fresh profile (nothing persists yet), gets through the
+  run starts a fresh profile unless `PROFILE=<folder>` keeps Chrome's data
+  (IndexedDB) between runs (then `NOFIRSTRUN=1`); downloads land in the
+  current folder, gets through the
   language dialogs and runs the steps. Screenshots land in the current
   folder. The coordinates below are for the 1000×700 viewport.
 - **Inside the app:** the `devexec` hook (`["py", "…"]` in `boot.mjs`, or
@@ -52,7 +54,22 @@ browse/stats: ["click",500,37,8000] / ["click",575,37,10000]
 | Browse window opens (sidebar, table) | ✅ |
 | Stats (graphs page) | ✅ |
 | Update check | ✅ fails cleanly ("update check failed: A network error occurred") |
-| Export download | ⏳ not tested |
-| Reload keeps the collection | ❌ not implemented (MEMFS) |
-| Sync, audio, TTS | ❌ not implemented |
+| Export download | ✅ see 2026-10-24 b |
+| Reload keeps the collection | ✅ see 2026-10-24 b |
+| Audio, TTS | ✅ see 2026-10-24 b; sync ❌ not implemented |
+
+### 2026-10-24 b: storage, audio, TTS, export (Chrome 155, headless, test-deck/)
+
+Run with `PROFILE=<folder>` so IndexedDB survives between runs.
+
+| Test | Result |
+| --- | --- |
+| Import `Anki xiehanzi - HSK 1.apkg` (24 MB, 311 media files) | ✅ 602 notes, 4 decks, 311 media files |
+| Reviewer: question audio (`[sound:cmn-的.mp3]`) | ✅ `WebAudioPlayer` → `<audio>` with a blob URL, playing |
+| `{{tts}}` (`TTSTag` zh_CN) | ✅ `WebSpeechPlayer` picks a zh_CN voice (macOS voices through Chrome) |
+| Export .apkg with media (`save_path` + `export_anki_package`) | ✅ `HSK.apkg` downloaded, 24.4 MB |
+| Reload (same browser profile, no first-run dialogs) | ✅ profile "User 1", 602 notes, 311 media files, audio plays from the saved media |
+| Import `Anki-NeetCode-Pro.apkg`, review | ✅ card renders; `CodeMirror is not defined` once (the deck's scripts, timing; not on the next run) |
+| HSK 1 Writing cards: Space/3 after the question | ⚠️ not answered: the template's drawing canvas keeps the keys |
+| Export through File › Export dialog clicks | ⏳ not clicked through (the same `save_path`) |
 | Firefox, Safari, a phone browser | ⏳ not tested (`moveBefore()` and JSPI-free Asyncify should work; COOP/COEP needed everywhere) |

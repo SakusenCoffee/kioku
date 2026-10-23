@@ -315,7 +315,107 @@
       setTimeout(() => URL.revokeObjectURL(url), 60000);
       return "1";
     },
+
+    // Save changed files to IndexedDB (main.cpp kioku_load_storage)
+    persist() {
+      if (window.__kiokuPersist) window.__kiokuPersist();
+      return "1";
+    },
+
+    // Audio and TTS (kioku_platform.audio) ---------------------------------
+
+    // Play a file from the wasm file system; posts "audio_done" with the
+    // token once it has ended, failed or been stopped
+    play(path, token) {
+      web.stopAudio();
+      let data;
+      try {
+        data = window.__kiokuFS.readFile(path);
+      } catch (e) {
+        web.post({ type: "audio_done", token });
+        return "";
+      }
+      const url = URL.createObjectURL(new Blob([data]));
+      const a = (audio = new Audio(url));
+      const done = () => {
+        if (a.done) return;
+        a.done = true;
+        URL.revokeObjectURL(url);
+        if (audio === a) audio = null;
+        web.post({ type: "audio_done", token });
+      };
+      a.stopped = done;
+      a.onended = done;
+      a.onerror = done;
+      a.play().catch((e) => {
+        console.warn("kioku: audio", e.message);
+        done();
+      });
+      return "1";
+    },
+
+    stopAudio() {
+      if (audio) {
+        audio.pause();
+        audio.stopped();
+      }
+      return "1";
+    },
+
+    pauseAudio() {
+      if (audio) audio.paused ? audio.play() : audio.pause();
+      return "1";
+    },
+
+    seekAudio(secs) {
+      if (audio) audio.currentTime = Math.max(0, audio.currentTime + secs);
+      return "1";
+    },
+
+    voices() {
+      return JSON.stringify(
+        speechSynthesis.getVoices().map((v) => ({ name: v.name, lang: v.lang, uri: v.voiceURI })),
+      );
+    },
+
+    // Speak with the Web Speech API; posts "tts_done" with the token
+    speak(text, uri, lang, rate, token) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = speechSynthesis.getVoices().find((v) => v.voiceURI === uri) || null;
+      u.lang = lang;
+      u.rate = rate;
+      let finished = false;
+      u.onend = u.onerror = () => {
+        if (finished) return;
+        finished = true;
+        web.post({ type: "tts_done", token });
+      };
+      speechSynthesis.speak(u);
+      return "1";
+    },
+
+    stopSpeaking() {
+      speechSynthesis.cancel();
+      return "1";
+    },
+
+    pauseSpeaking() {
+      speechSynthesis.paused ? speechSynthesis.resume() : speechSynthesis.pause();
+      return "1";
+    },
   });
+
+  let audio = null;
+  // the voice list fills in asynchronously
+  if (window.speechSynthesis) speechSynthesis.getVoices();
+  // save /home/web_user (storage.js) on a timer and when the page goes
+  // away; Python also asks after collection operations
+  setInterval(() => web.persist(), 10000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") web.persist();
+  });
+  window.addEventListener("pagehide", () => web.persist());
 
   navigator.serviceWorker.addEventListener("message", (event) => {
     const msg = event.data;

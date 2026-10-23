@@ -9,7 +9,8 @@
 //   ["dom", "js"]             evaluate JavaScript on the app page
 //   ["frames"]                state of each web view iframe
 //   ["pause"]                 stack of the main thread (link with --profiling-funcs)
-// Env: CHROME (browser path), NOFIRSTRUN=1 (profile already set up)
+// Env: CHROME (browser path), NOFIRSTRUN=1 (profile already set up),
+// PROFILE (Chrome user data folder; keep it to test saved data across runs)
 import puppeteer from "puppeteer-core";
 const steps = JSON.parse(process.argv[2] || "[]");
 const browser = await puppeteer.launch({
@@ -22,7 +23,12 @@ await page.setViewport({ width: 1000, height: 700 });
 const t0 = Date.now();
 const log = (s) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}`);
 page.on("console", (m) => { const t = m.text(); if (!/OpenType|null function/.test(t)) log(t.slice(0, 400)); });
-page.on("pageerror", (e) => log("pageerror " + e.message.slice(0, 300)));
+page.on("pageerror", (e) => log("pageerror " + (process.env.STACK ? e.stack : e.message).slice(0, 3000)));
+// exports (kioku_platform.files) land in the current folder
+const bclient = await browser.target().createCDPSession();
+await bclient.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: process.cwd(), eventsEnabled: true });
+bclient.on("Browser.downloadWillBegin", (e) => log(`download ${e.suggestedFilename}`));
+bclient.on("Browser.downloadProgress", (e) => { if (e.state !== "inProgress") log(`download ${e.state} ${e.receivedBytes} bytes`); });
 const client = await page.createCDPSession();
 await client.send("Debugger.enable");
 let started = false;

@@ -104,6 +104,9 @@ EM_JS(void, kioku_install_js, (), {
     };
 });
 
+// shell/storage.js keeps /home/web_user in IndexedDB
+EM_JS_DEPS(kioku_storage, "$IDBFS,$MEMFS");
+
 static void fail(const char *what, PyStatus status) {
     fprintf(stderr, "Kioku: %s failed: %s\n", what, status.err_msg ? status.err_msg : "?");
     Py_ExitStatusException(status);

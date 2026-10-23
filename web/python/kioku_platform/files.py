@@ -39,11 +39,10 @@ def pick_files(name_filter: str = "*", multi: bool = False) -> list[str]:
 
 
 def save_path(file_name: str) -> str:
-    """Exports are written to Exports/ in the wasm file system, then
+    """Exports are written to /tmp/Exports in the wasm file system, then
     downloaded once the file stops growing."""
-    from . import documents_dir
-
-    folder = os.path.join(documents_dir(), "Exports")
+    # not under documents_dir(), which is saved in the browser
+    folder = "/tmp/Exports"
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, file_name)
     if os.path.exists(path):

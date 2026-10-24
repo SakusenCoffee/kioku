@@ -9,7 +9,7 @@
 //   ["dom", "js"]             evaluate JavaScript on the app page
 //   ["frames"]                state of each web view iframe
 //   ["pause"]                 stack of the main thread (link with --profiling-funcs)
-// Env: CHROME (browser path), NOFIRSTRUN=1 (profile already set up),
+// Env: URL (app page, default http://127.0.0.1:8765/app.html), CHROME (browser path), NOFIRSTRUN=1 (profile already set up),
 // PROFILE (Chrome user data folder; keep it to test saved data across runs)
 import puppeteer from "puppeteer-core";
 const steps = JSON.parse(process.argv[2] || "[]");
@@ -33,7 +33,7 @@ const client = await page.createCDPSession();
 await client.send("Debugger.enable");
 let started = false;
 page.on("console", (m) => { if (m.text().includes("Starting Anki")) started = true; });
-await page.goto("http://127.0.0.1:8765/app.html");
+await page.goto(process.env.URL || "http://127.0.0.1:8765/app.html");
 while (!started) await new Promise((r) => setTimeout(r, 300));
 await new Promise((r) => setTimeout(r, 1500));
 if (!process.env.NOFIRSTRUN) {

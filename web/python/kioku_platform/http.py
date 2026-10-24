@@ -3,8 +3,11 @@
 A browser tab can't listen on a port. shell/sw.js catches the requests of
 Kioku's iframes and the page relays them here; each one runs on a worker
 thread through Anki's Flask app, as Anki's own server thread would run it.
-The app is served from 127.0.0.1 so the URLs Anki builds
-(http://127.0.0.1:<port>/...) are the page's own origin.
+Anki builds its URLs as http://127.0.0.1:<port>/... (mw.serverURL(),
+webBundlePath, its CSPs); the page may be served from anywhere
+(127.0.0.1, localhost, a real domain), so they are pointed at the page's
+own origin, where the service worker sees them. Anki's Flask app still
+gets 127.0.0.1 requests, which its host check wants.
 
 Responses are adapted for iframes: Anki forbids framing its pages
 (frame-ancestors 'none'), and Kioku's scripts are added to every HTML page
@@ -28,6 +31,8 @@ logger = logging.getLogger("kioku.http")
 
 PREFIX = "/_anki/__kioku/"
 _port = 0
+# the app page's, e.g. http://127.0.0.1:8765 or https://kioku.example.com
+origin = ""
 # pages given to WebView.load_html(), by key: (html, base URL)
 html_pages: dict[str, tuple[str, str | None]] = {}
 
@@ -45,17 +50,22 @@ INIT_JS = r"""
 
 _HEAD_RE = re.compile(rb"<head\b[^>]*>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(rb"^\s*<!doctype[^>]*>", re.IGNORECASE)
+_TEXT_TYPES = ("text/html", "text/css", "text/javascript", "application/javascript", "application/json")
 _META_CSP_RE = re.compile(
     rb'(<meta http-equiv="content-security-policy" content="script-src [^"]*)"', re.IGNORECASE
 )
 
 
-def setup(port: int) -> None:
-    """Make aqt.mediasrv's server thread a no-op that reports `port`."""
-    global _port
+def setup(page_origin: str) -> None:
+    """Make aqt.mediasrv's server thread a no-op that reports the page's
+    port, and Anki's URLs the page's origin."""
+    global _port, origin
+    import aqt.main
     import aqt.mediasrv
+    import aqt.webview
 
-    _port = port
+    origin = page_origin
+    _port = urlsplit(origin).port or (443 if origin.startswith("https:") else 80)
 
     def run(self) -> None:  # type: ignore[no-untyped-def]
         logger.info("Anki's pages are served in-process on port %d", _port)
@@ -64,6 +74,27 @@ def setup(port: int) -> None:
     aqt.mediasrv.MediaServer.run = run
     aqt.mediasrv.MediaServer.getPort = lambda self: _port
     aqt.mediasrv.MediaServer.shutdown = lambda self: None
+    aqt.main.AnkiQt.serverURL = lambda self: origin + "/"
+
+    def web_bundle_path(cls: type, path: str) -> str:
+        return origin + (path if path.startswith("/") else "/_anki/" + path)
+
+    aqt.webview.AnkiWebView.webBundlePath = classmethod(web_bundle_path)  # type: ignore[assignment]
+
+
+def local_url(url: str) -> str:
+    """`url` with Anki's own origins (127.0.0.1 or localhost, as add-ons
+    like AMBOSS build them) replaced by the page's."""
+    for local in (f"http://127.0.0.1:{_port}", f"http://localhost:{_port}"):
+        if url.startswith(local + "/") or url == local:
+            return origin + url[len(local) :]
+    return url
+
+
+def _local_text(data: bytes) -> bytes:
+    for local in (f"http://127.0.0.1:{_port}", f"http://localhost:{_port}"):
+        data = data.replace(local.encode(), origin.encode())
+    return data
 
 
 def handle(event: dict) -> None:
@@ -102,13 +133,18 @@ def _serve(event: dict) -> tuple[int, list[tuple[str, str]], bytes]:
             continue
         if lname == "content-security-policy":
             value = _csp(value)
+        elif lname == "location":
+            value = local_url(value)
         out.append((name, value))
+    if resp.mimetype in _TEXT_TYPES:
+        body = _local_text(body)
     if resp.mimetype == "text/html":
         body = _inject(body)
     return resp.status_code, out, body
 
 
 def _csp(value: str) -> str:
+    value = _local_text(value.encode()).decode()
     value = value.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
     if "script-src" in value and "'unsafe-eval'" not in value:
         value = re.sub(r"script-src([^;]*)", r"script-src\1 'unsafe-eval'", value, count=1)
@@ -147,5 +183,6 @@ def _kioku_file(name: str) -> tuple[int, list[tuple[str, str]], bytes]:
         return _js(view.user_script(int(parts[3].removesuffix(".js"))))
     if parts[0] == "html" and len(parts) == 2 and parts[1] in html_pages:
         html, base = html_pages[parts[1]]
-        return 200, [("Content-Type", "text/html; charset=utf-8")], _inject(html.encode(), base)
+        page = _local_text(html.encode())
+        return 200, [("Content-Type", "text/html; charset=utf-8")], _inject(page, base and local_url(base))
     return 404, [("Content-Type", "text/plain")], b"not found"

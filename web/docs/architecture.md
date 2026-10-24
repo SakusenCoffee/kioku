@@ -93,10 +93,17 @@ the iframes, and posts them to the app page; the page passes them to wasm
 Anki's Flask app through its test client, as Anki's own server thread
 would. `_kioku_web.respond` posts the answer back.
 
-The app must be served from `127.0.0.1`: Anki builds
-`http://127.0.0.1:<port>/...` URLs (`mw.serverURL()`, its CSPs), and
-`MediaServer.getPort()` reports the page's own port, so those URLs are the
-page's origin and reach the service worker.
+Anki builds `http://127.0.0.1:<port>/...` URLs (`mw.serverURL()`,
+`webBundlePath`, its CSPs), but the page may be served from anywhere
+(`127.0.0.1`, `localhost`, a domain), and only the page's own origin
+reaches the service worker. `http.setup()` takes the page's origin
+(`location.origin`): `serverURL()` and `webBundlePath` return it,
+`getPort()` reports its port, and `127.0.0.1:<port>`/`localhost:<port>` in
+CSPs, `Location` headers, text responses and `WebView.load_url()` become
+it. Anki's Flask app itself still gets requests for `127.0.0.1`, which its
+host check wants. Kioku's auth script (headers for Anki's API, added to
+requests for host `127.0.0.1`) is pointed at the page's origin in
+`WebView.set_user_scripts()`.
 
 Responses are adapted for iframes in a cross-origin-isolated page:
 
@@ -132,6 +139,23 @@ stops growing.
 Qt for WebAssembly leaves the main window at its desktop size and Anki
 restores the saved geometry when a profile opens, so the platform layer
 keeps the main window fitted to the page (`_fill_screen`).
+
+## Hosting (`cloudflare/`, `tools/dist.sh`)
+
+The page needs COOP/COEP headers (GitHub Pages can't send them) and, for
+sync and add-ons, the socket relay next to it. On Cloudflare Workers (free
+plan) `build/dist` is served as static assets with `_headers`, and
+`cloudflare/worker.js` runs first for:
+
+- `/kioku.wasm`, `/kioku.data`: Cloudflare takes files up to 25 MiB, so
+  `tools/dist.sh` stores them brotli-compressed (17 MB and 5.5 MB) and the
+  Worker serves them with `Content-Encoding: br` (`encodeBody: "manual"`);
+  the browser undoes it.
+- `/__relay/<host>:<port>`: the same relay as `tools/serve.py`, with
+  `connect()` from `cloudflare:sockets`. Anyone can send any `Origin`
+  outside a browser, so on a public URL the host list (`RELAY_ALLOW` in
+  `wrangler.jsonc`) is what keeps it from being an open proxy: AnkiWeb
+  only by default, add-ons' services must be added.
 
 ## Development aids
 

@@ -71,8 +71,8 @@
       return matchMedia("(prefers-color-scheme: dark)").matches ? "1" : "";
     },
 
-    port() {
-      return location.port || (location.protocol === "https:" ? "443" : "80");
+    origin() {
+      return location.origin;
     },
 
     // Web views -----------------------------------------------------------

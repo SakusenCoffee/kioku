@@ -31,7 +31,7 @@ def prepare() -> None:
     os.environ.setdefault("SSL_CERT_FILE", "/site/certifi/cacert.pem")
     _ignore_socket_options()
     web.start()
-    http.setup(int(web.js("port")))
+    http.setup(web.js("origin"))
     _fill_screen()
     _save_after_changes()
     if dev_allowed():

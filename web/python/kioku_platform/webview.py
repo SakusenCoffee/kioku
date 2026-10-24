@@ -94,7 +94,12 @@ class WebView:
     # Scripts (served by http.py) -------------------------------------------
 
     def set_user_scripts(self, scripts: list[tuple[str, int, bool]]) -> None:
-        self._scripts = list(scripts)
+        # kioku.webengine's auth script adds Anki's headers to requests for
+        # host 127.0.0.1; here Anki's server is the page's origin
+        self._scripts = [
+            (js.replace("hostname==='127.0.0.1'", f"origin==={json.dumps(http.origin)}"), when, main)
+            for js, when, main in scripts
+        ]
 
     def page_script(self, gen: int) -> str:
         """Loads the scripts as separate files, so each runs at global scope
@@ -127,12 +132,9 @@ class WebView:
         self.gen += 1
         self._url = url
         self.on_load_started()
-        # localhost is another origin than the page's 127.0.0.1: the service
-        # worker wouldn't see the request (AMBOSS builds its URLs that way)
-        local = f"http://localhost:{http._port}/"
-        if url.startswith(local):
-            url = f"http://127.0.0.1:{http._port}/" + url[len(local) :]
-        web.js("load", self.id, url, self.gen)
+        # Anki's and add-ons' 127.0.0.1/localhost URLs: only the page's own
+        # origin reaches the service worker
+        web.js("load", self.id, http.local_url(url), self.gen)
 
     def load_html(self, html: str, base_url: str | None) -> None:
         key = f"{self.id}-{self.gen + 1}"
@@ -140,7 +142,7 @@ class WebView:
         # keep only the latest page of each view
         for old in [k for k in http.html_pages if k.startswith(f"{self.id}-") and k != key]:
             del http.html_pages[old]
-        self.load_url(f"http://127.0.0.1:{http._port}{http.PREFIX}html/{key}")
+        self.load_url(f"{http.origin}{http.PREFIX}html/{key}")
         self._url = base_url or "about:blank"
 
     def reload(self) -> None:

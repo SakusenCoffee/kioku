@@ -17,6 +17,9 @@
   current folder, gets through the
   language dialogs and runs the steps. Screenshots land in the current
   folder. The coordinates below are for the 1000×700 viewport.
+  `URL=<app page>` tests another server, e.g.
+  `URL=http://localhost:8765/app.html` or the Worker under `wrangler dev`
+  (`URL=http://127.0.0.1:8787/app.html`).
 - **Inside the app:** the `devexec` hook (`["py", "…"]` in `boot.mjs`, or
   `__kiokuWeb.post({type: "devexec", code})` in the console) runs Python
   and prints `result`. `["pause"]` prints the main thread's stack when the
@@ -160,3 +163,19 @@ reload, extra windows. 27/27 passed, no page errors.
 The window checks only see that the window opens, not that everything in
 it works.
 
+### 2026-10-24 g: any origin, Cloudflare Worker (Chrome 155, headless)
+
+The page's origin instead of a hard-wired `127.0.0.1`; `tools/dist.sh`
+and `cloudflare/` with `wrangler dev` (wrangler 4.148.0), then deployed.
+
+| Test | Result |
+| --- | --- |
+| Smoke test, `serve.py` at `http://127.0.0.1:8765` | ✅ 27/27 |
+| Smoke test, `serve.py` at `http://localhost:8765` (failed before) | ✅ 27/27 |
+| Smoke test, Worker at `http://127.0.0.1:8787` (compressed wasm and data) | ✅ 27/27 |
+| Worker relay: `requests` to AnkiWeb; to example.com (not in `RELAY_ALLOW`) | ✅ 200; ✅ 403 |
+| Worker relay: 23.6 MB over HTTPS (python.org) | ✅ 12.0 s (serve.py: 10.2 s) |
+| Deployed (`https://kioku.krmanik.workers.dev`, free plan): smoke test | ✅ 27/27; wasm sent as brotli (17 MB) |
+| Deployed: relay to AnkiWeb; example.com refused | ✅ 200; ✅ refused |
+| Deployed: free plan's 10 ms CPU limit with a long sync | ⏳ not tested |
+| Sync through the Worker relay | ⏳ only AnkiWeb requests (above); no full sync yet |

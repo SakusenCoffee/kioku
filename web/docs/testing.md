@@ -7,6 +7,8 @@
   `tools/core/` with `node tools/core/run.mjs /app/core_probe.py` from
   `build/core/` (copy `tools/core/run.mjs` there first). Good for Rust or
   Python core problems: the full app takes ~5 minutes to relink.
+- **Smoke test:** `python3 tools/test/smoke.py [deck.apkg]` (server on
+  8765): ~4 minutes, prints PASS/FAIL per check. Run it after changes.
 - **The app (headless Chrome):** `python3 tools/serve.py build/cmake 8765`,
   then `cd tools/test && npm install` once and
   `node boot.mjs '<steps>'` (steps documented at the top of `boot.mjs`). Each
@@ -133,5 +135,28 @@ with Enter.
 | `ambossAddon is not defined` once at start | ⚠️ its inline script is in `web_content.head`, before its own scripts; same order on the desktop |
 | Log in through its form (test account from Kioku's `.env`) | ✅ logged in; its "Mobile Support" intro follows (after the main-thread `poll()` fix) |
 | After a reload: still logged in; AMBOSS menu, toolbar button, Qbank widget on the deck list | ✅ |
-| Article tooltips in cards, Qbank session | ⏳ not tried (needs an AMBOSS-matched deck) |
+| Kioku's "AMBOSS Test" deck: terms underlined while reviewing | ✅ |
+| Hover a term (ADPKD): pop-up with title, images, text | ✅ (a click closes it again: tippy's toggle); the pop-up is taller than the reviewer and is cut at its bottom |
+| Qbank session | ⏳ not tried |
+
+### 2026-10-24 f: smoke test (`python3 tools/test/smoke.py`, Chrome 155, headless)
+
+Three runs in one fresh browser profile (about 4 minutes): first run,
+reload, extra windows. 27/27 passed, no page errors.
+
+| Check | Result |
+| --- | --- |
+| First-run dialogs → profile and collection | ✅ |
+| Add a note through the editor; answer it in the reviewer | ✅ |
+| Import HSK 1 (.apkg, 311 media files); its audio plays; `{{tts}}` speaks | ✅ |
+| Browse, Stats, Deck Options, Preferences, Card Types open | ✅ |
+| Check Database; undo status | ✅ |
+| Export .apkg with media → download (24 MB); export .colpkg | ✅ |
+| Reload: profile, notes, review, media kept | ✅ |
+| Filtered deck, Custom Study, Note Types, Empty Cards, Check Media, Find and Replace, CSV import page | ✅ open |
+| Dark theme; "follow system" follows the browser's `prefers-color-scheme` | ✅ (was hard-coded light) |
+| Switch profile (profile manager) | ✅ |
+
+The window checks only see that the window opens, not that everything in
+it works.
 

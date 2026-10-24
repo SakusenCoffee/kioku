@@ -150,7 +150,8 @@ def cache_dir() -> str:
 
 
 def dark_mode() -> bool:
-    return False
+    """The browser's (and so the system's) light or dark setting."""
+    return web.js("darkMode") == "1"
 
 
 def open_folder(path: str) -> None:

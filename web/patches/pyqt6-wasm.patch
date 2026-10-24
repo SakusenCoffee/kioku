@@ -1,0 +1,96 @@
+diff --git sip/QtCore/QtCoremod.sip sip/QtCore/QtCoremod.sip
+index de16dc7..db61173 100644
+--- sip/QtCore/QtCoremod.sip
++++ sip/QtCore/QtCoremod.sip
+@@ -44,6 +44,9 @@
+ %Feature PyQt_XCB
+ %Feature PyQt_Wayland
+ %Feature PyQt_Vulkan
++%Feature PyQt_SystemSemaphore
++%Feature PyQt_TimeZone
++%Feature PyQt_NetworkInterface
+ 
+ %Copying
+ Copyright (c) 2026 Riverbank Computing Limited <info@riverbankcomputing.com>
+@@ -180,7 +183,9 @@ static const char *PYQT_VERSION_STR = "6.11.0";
+ %Include qstringconverter.sip
+ %Include qstringlistmodel.sip
+ %Include qsysinfo.sip
++%If (PyQt_SystemSemaphore)
+ %Include qsystemsemaphore.sip
++%End
+ %Include qtemporarydir.sip
+ %Include qtemporaryfile.sip
+ %Include qtextboundaryfinder.sip
+diff --git sip/QtCore/qdatetime.sip sip/QtCore/qdatetime.sip
+index 2031e0e..230021e 100644
+--- sip/QtCore/qdatetime.sip
++++ sip/QtCore/qdatetime.sip
+@@ -452,7 +452,9 @@ public:
+     static qint64 currentMSecsSinceEpoch();
+     void swap(QDateTime &other /Constrained/);
+     int offsetFromUtc() const;
++%If (PyQt_TimeZone)
+     QTimeZone timeZone() const;
++%End
+     QString timeZoneAbbreviation() const;
+     bool isDaylightTime() const;
+     void setOffsetFromUtc(int offsetSeconds);
+diff --git sip/QtCore/qsharedmemory.sip sip/QtCore/qsharedmemory.sip
+index 92dbe0d..ad90544 100644
+--- sip/QtCore/qsharedmemory.sip
++++ sip/QtCore/qsharedmemory.sip
+@@ -69,8 +69,12 @@ public:
+         sipRes = sipConvertFromConstVoidPtrAndSize(sipCpp->constData(), sipCpp->size());
+ %End
+ 
++%If (PyQt_SystemSemaphore)
+     bool lock();
++%End
++%If (PyQt_SystemSemaphore)
+     bool unlock();
++%End
+     QSharedMemory::SharedMemoryError error() const;
+     QString errorString() const;
+ %If (Qt_6_6_0 -)
+diff --git sip/QtNetwork/QtNetworkmod.sip sip/QtNetwork/QtNetworkmod.sip
+index 8fb1dda..5776f3d 100644
+--- sip/QtNetwork/QtNetworkmod.sip
++++ sip/QtNetwork/QtNetworkmod.sip
+@@ -65,7 +65,9 @@ WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ %Include qnetworkdatagram.sip
+ %Include qnetworkdiskcache.sip
+ %Include qnetworkinformation.sip
++%If (PyQt_NetworkInterface)
+ %Include qnetworkinterface.sip
++%End
+ %Include qnetworkproxy.sip
+ %Include qnetworkreply.sip
+ %Include qnetworkrequest.sip
+diff --git sip/QtNetwork/qudpsocket.sip sip/QtNetwork/qudpsocket.sip
+index 7cd8c62..b39bb99 100644
+--- sip/QtNetwork/qudpsocket.sip
++++ sip/QtNetwork/qudpsocket.sip
+@@ -86,10 +86,22 @@ public:
+ %End
+ 
+     qint64 writeDatagram(const QNetworkDatagram &datagram) /ReleaseGIL/;
++%If (PyQt_NetworkInterface)
+     bool joinMulticastGroup(const QHostAddress &groupAddress);
++%End
++%If (PyQt_NetworkInterface)
+     bool joinMulticastGroup(const QHostAddress &groupAddress, const QNetworkInterface &iface);
++%End
++%If (PyQt_NetworkInterface)
+     bool leaveMulticastGroup(const QHostAddress &groupAddress);
++%End
++%If (PyQt_NetworkInterface)
+     bool leaveMulticastGroup(const QHostAddress &groupAddress, const QNetworkInterface &iface);
++%End
++%If (PyQt_NetworkInterface)
+     QNetworkInterface multicastInterface() const;
++%End
++%If (PyQt_NetworkInterface)
+     void setMulticastInterface(const QNetworkInterface &iface);
++%End
+ };

@@ -1,0 +1,88 @@
+diff --git Cargo.toml Cargo.toml
+index 933d4b1..9c39160 100644
+--- Cargo.toml
++++ Cargo.toml
+@@ -71,7 +71,7 @@ features = [
+ ]
+ 
+ [features]
+-default = []
++default = ["io-util"]
+ fs = []
+ full = [
+     "fs",
+@@ -821,7 +821,7 @@ features = [
+ [target.'cfg(not(all(target_family = "wasm", target_os = "unknown")))'.dev-dependencies.rand]
+ version = "0.9"
+ 
+-[target.'cfg(not(target_family = "wasm"))'.dependencies.socket2]
++[target.'cfg(not(all(target_family = "wasm", not(target_os = "emscripten"))))'.dependencies.socket2]
+ version = "0.6.0"
+ features = ["all"]
+ optional = true
+diff --git src/net/unix/ucred.rs src/net/unix/ucred.rs
+index bdc417f..d875733 100644
+--- src/net/unix/ucred.rs
++++ src/net/unix/ucred.rs
+@@ -62,7 +62,7 @@ pub(crate) use self::impl_solaris::get_peer_cred;
+ #[cfg(target_os = "aix")]
+ pub(crate) use self::impl_aix::get_peer_cred;
+ 
+-#[cfg(any(target_os = "espidf", target_os = "vita"))]
++#[cfg(any(target_os = "espidf", target_os = "vita", target_os = "emscripten"))]
+ pub(crate) use self::impl_noproc::get_peer_cred;
+ 
+ #[cfg(any(
+@@ -317,7 +317,7 @@ pub(crate) mod impl_aix {
+     }
+ }
+ 
+-#[cfg(any(target_os = "espidf", target_os = "vita"))]
++#[cfg(any(target_os = "espidf", target_os = "vita", target_os = "emscripten"))]
+ pub(crate) mod impl_noproc {
+     use crate::net::unix::UnixStream;
+     use std::io;
+diff --git src/runtime/signal/mod.rs src/runtime/signal/mod.rs
+index 8055c09..f147f9e 100644
+--- src/runtime/signal/mod.rs
++++ src/runtime/signal/mod.rs
+@@ -41,8 +41,11 @@ pub(crate) struct Handle {
+ impl Driver {
+     /// Creates a new signal `Driver` instance that delegates wakeups to `park`.
+     pub(crate) fn new(io: io::Driver, io_handle: &io::Handle) -> std_io::Result<Self> {
++        #[cfg(not(target_os = "emscripten"))]
+         use std::mem::ManuallyDrop;
+-        use std::os::unix::io::{AsRawFd, FromRawFd};
++        #[cfg(not(target_os = "emscripten"))]
++        use std::os::unix::io::AsRawFd;
++        use std::os::unix::io::FromRawFd;
+ 
+         // NB: We give each driver a "fresh" receiver file descriptor to avoid
+         // the issues described in alexcrichton/tokio-process#42.
+@@ -63,12 +66,26 @@ impl Driver {
+         // safe as each dup is registered with separate reactors **and** we
+         // only expect at least one dup to receive the notification.
+ 
++        // Emscripten has no socketpair() and a browser tab gets no signals:
++        // poll the read end of a pipe that is never written instead.
++        #[cfg(target_os = "emscripten")]
++        let mut receiver = {
++            let mut fds = [0 as libc::c_int; 2];
++            if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
++                return Err(std_io::Error::last_os_error());
++            }
++            UnixStream::from_std(unsafe { std::os::unix::net::UnixStream::from_raw_fd(fds[0]) })
++        };
++
+         // Manually drop as we don't actually own this instance of UnixStream.
++        #[cfg(not(target_os = "emscripten"))]
+         let receiver_fd = globals().receiver.as_raw_fd();
+ 
+         // safety: there is nothing unsafe about this, but the `from_raw_fd` fn is marked as unsafe.
++        #[cfg(not(target_os = "emscripten"))]
+         let original =
+             ManuallyDrop::new(unsafe { std::os::unix::net::UnixStream::from_raw_fd(receiver_fd) });
++        #[cfg(not(target_os = "emscripten"))]
+         let mut receiver = UnixStream::from_std(original.try_clone()?);
+ 
+         io_handle.register_signal_receiver(&mut receiver)?;

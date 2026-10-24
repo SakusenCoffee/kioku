@@ -35,3 +35,11 @@ faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9 $CJK/SC/NotoSan
 a16645d056017927406546aa78e4ce15e782fd8783467267b75450453d007415 $NOTO/NotoSansOriya/hinted/ttf/NotoSansOriya-Regular.ttf
 4e3c66638958c3e2ab5d37f47a8deb89fffeb7be9985c665a519bbc7ba762313 $NOTO/NotoSansDevanagari/hinted/ttf/NotoSansDevanagari-Regular.ttf
 EOF
+# IANA time zones (Python's tzdata package, packed as /site/tzdata):
+# kioku_platform._set_timezone() gives Anki's Rust core the browser's zone
+if [ ! -d tzdata ]; then
+    curl -fsSL -o tzdata.whl https://files.pythonhosted.org/packages/94/21/1e5995a1c920cce14e4bffae20c665ec10e7ed03ab25e006cd741092b718/tzdata-2026.5-py2.py3-none-any.whl
+    echo "b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac  tzdata.whl" | shasum -a 256 -c --quiet
+    unzip -q tzdata.whl 'tzdata/*' -d .
+    rm tzdata.whl
+fi

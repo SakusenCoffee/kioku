@@ -33,8 +33,22 @@ through OpenSSL built for wasm). The app can be served from any origin;
 [`cloudflare/`](cloudflare/) hosts it on Cloudflare Workers' free plan
 (running at <https://kioku.krmanik.workers.dev>).
 
-Download: `kioku.wasm` 94 MB (18.5 MB with brotli), `kioku.data` 34 MB
-(8.5 MB gzipped).
+Download: `kioku.wasm` 100 MB (17 MB with brotli), `kioku.data` 48 MB
+with fonts and time zones (14 MB with brotli).
+
+## Limits
+
+- **Size.** Profiles, collections and media live in the tab's memory and
+  are saved to IndexedDB. 3 GB of files saved and came back in desktop
+  Chrome (docs/testing.md); the tab then uses about as much RAM, and
+  phones have far less. The browser's quota is a share of the free disk
+  (Chrome: up to 60%).
+- **Keeping data.** The app asks for persistent storage after the notice;
+  without it the browser may delete the data when the disk runs low, and
+  Safari deletes it after 7 days without a visit. Export backups.
+- **Saving** copies each changed file whole (the collection after every
+  review), on the main thread: fine for small collections, slow for
+  large ones.
 
 ## Quick start
 

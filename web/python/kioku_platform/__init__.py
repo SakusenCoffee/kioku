@@ -32,12 +32,31 @@ def prepare() -> None:
     os.environ.setdefault("SSL_CERT_FILE", "/site/certifi/cacert.pem")
     _ignore_socket_options()
     web.start()
+    _set_timezone()
     http.setup(web.js("origin"))
     _add_fonts()
     _fill_screen()
     _save_after_changes()
     if dev_allowed():
         web.listen("devexec", _devexec)
+
+
+def _set_timezone() -> None:
+    """Python's time functions follow the browser's zone (Emscripten asks
+    JavaScript), but Anki's Rust core (chrono) reads /etc/localtime, which
+    the wasm file system lacks, so it ran on UTC: Browse's dates were off and
+    the scheduler's day started at the cutoff hour in UTC. Copy the
+    browser's zone there from tzdata (tools/fetch_deps.sh) before the
+    backend starts."""
+    import shutil
+
+    zone = web.js("timeZone")
+    path = os.path.join("/site/tzdata/zoneinfo", *zone.split("/"))
+    if not zone or ".." in zone or not os.path.isfile(path):
+        logger.warning("time zone %r not found; Anki's core uses UTC", zone)
+        return
+    os.makedirs("/etc", exist_ok=True)
+    shutil.copyfile(path, "/etc/localtime")
 
 
 def _add_fonts() -> None:

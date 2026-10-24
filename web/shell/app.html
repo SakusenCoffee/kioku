@@ -45,7 +45,14 @@
     <script src="qtloader.js"></script>
     <script>
       // shown on every visit while the app loads behind it
-      document.querySelector("#warning").showModal();
+      const warning = document.querySelector("#warning");
+      warning.showModal();
+      // without persistent storage the browser may delete the collection
+      // (IndexedDB) when the disk runs low; Firefox asks, Chrome decides
+      // by itself. After OK, so it counts as the user's gesture
+      warning.addEventListener("close", () => {
+        navigator.storage?.persist?.().then((granted) => console.log("Kioku: persistent storage", granted));
+      });
       (async function () {
         const status = document.querySelector("#status");
         const screen = document.querySelector("#screen");

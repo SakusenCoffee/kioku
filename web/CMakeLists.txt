@@ -56,12 +56,13 @@ target_link_options(kioku PRIVATE
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/stdlib@/python/lib/python3.14"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/build/site@/site"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/deps/fonts@/fonts"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/deps/tzdata@/site/tzdata"
     "SHELL:--exclude-file *__pycache__*"
 )
 
 # The app's own Python (app.data) and the page files (shell/), packed on
 # every build without relinking (tools/pack_app.sh); kioku.data keeps the
-# stdlib, site-packages and fonts
+# stdlib, site-packages, fonts and time zones
 add_custom_target(app_files ALL
     COMMAND ${CMAKE_SOURCE_DIR}/tools/pack_app.sh ${CMAKE_BINARY_DIR}
     BYPRODUCTS ${CMAKE_BINARY_DIR}/app-data.js

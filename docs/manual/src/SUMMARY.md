@@ -7,6 +7,7 @@
   - [iPhone and iPad](install/ios.md)
   - [Android, native](install/android.md)
   - [Android, Termux](install/termux.md)
+  - [Web browser (experimental)](install/web.md)
 - [Getting Started](getting-started.md)
 - [Using Kioku on a Phone](using/intro.md)
   - [Native apps (iPhone, Android)](using/native.md)

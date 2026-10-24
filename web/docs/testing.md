@@ -179,3 +179,16 @@ and `cloudflare/` with `wrangler dev` (wrangler 4.148.0), then deployed.
 | Deployed: relay to AnkiWeb; example.com refused | ✅ 200; ✅ refused |
 | Deployed: free plan's 10 ms CPU limit with a long sync | ⏳ not tested |
 | Sync through the Worker relay | ⏳ only AnkiWeb requests (above); no full sync yet |
+
+### 2026-10-24 h: fonts, time zone, storage size (Chrome 155, headless, macOS)
+
+| Test | Result |
+| --- | --- |
+| First-run language list: Chinese, Japanese, Korean, Thai, Oriya | ✅ rendered (were boxes) |
+| Browse with the HSK deck: hanzi in Sort Field | ✅ rendered |
+| HSK deck's Created column shows 1970-01-01 | ✅ correct: the deck's note ids are 1–602 (made by a script, not Anki); the same on the desktop |
+| Note added in the app at 12:12 IST: Created column | ✅ 12:12 (was 06:34, UTC) |
+| Chrome in America/New_York at 02:42 EDT: Created; `sched.day_cutoff` | ✅ 02:42; ✅ today 04:00 EDT |
+| 1 GB of files (random) in `/home/web_user`, saved, reload | ✅ all back; written 9.5 s; start ~10 s slower; JS heap ~1.1 GB |
+| 3 GB of files, saved, reload | ✅ all back; written 28.5 s; JS heap ~3.1 GB; quota reported 11–13 GB |
+| Notice on opening; `navigator.storage.persist()` after OK | ✅ shown; ✅ asked (headless: not granted) |

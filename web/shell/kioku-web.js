@@ -75,6 +75,10 @@
       return location.origin;
     },
 
+    timeZone() {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    },
+
     // Web views -----------------------------------------------------------
 
     // Set up a page in one of the iframes (WebView.BRIDGE runs this first):

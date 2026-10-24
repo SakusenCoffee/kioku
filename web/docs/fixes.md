@@ -90,4 +90,5 @@ is unchanged.
 | AMBOSS: login dialog showed a broken page | it loads `http://localhost:<port>/_addons/…`, another origin than the page's `127.0.0.1`, so the service worker never saw it (404 from serve.py) | `WebView.load_url` rewrites `localhost:<port>` to `127.0.0.1:<port>` |
 | AMBOSS: `ambossAddon is not defined`, its CDN script blocked | COEP `require-corp` blocks cross-origin scripts without CORP headers | COEP `credentialless` (serve.py, sw.js): still cross-origin isolated in Chrome/Firefox; Safari doesn't support it |
 | AMBOSS/HyperTTS hosts refused by the relay (403) | allowlist had only AnkiWeb | relay checks `Origin` (only the app page may use it) and allows any host on 443 |
+| AMBOSS login would hang | it logs in from a pycmd handler on the GUI thread; the relay's data arrives as WebSocket events, which only run once the main thread yields | the `poll()` wrapper yields on the main thread with `emscripten_sleep()` (Asyncify) |
 | File › Import had no file picker | `pick_files` was a stub | `<input type=file>` opened from the triggering click, files copied into the wasm file system |

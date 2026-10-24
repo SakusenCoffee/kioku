@@ -27,16 +27,23 @@ PyObject *PyInit_rpds(void);
 
 // Emscripten's poll() ignores its timeout and returns at once, so a socket
 // wait with a timeout (CPython's sockets: ssl handshakes, requests) gave up
-// before the relay's data arrived. Linked with --wrap=poll: worker threads
-// poll again every 2 ms until something is ready or the timeout passes; the
-// main thread can't sleep and keeps the plain call.
+// before the relay's data arrived. Linked with --wrap=poll: poll again
+// every 2 ms until something is ready or the timeout passes. Worker threads
+// sleep; the main thread yields to the browser with emscripten_sleep()
+// (Asyncify, as Qt's nested event loops do), since the WebSocket events
+// that bring the data only run then: add-ons call the network from the
+// GUI thread (AMBOSS logs in from a pycmd handler).
 extern "C" int __real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 extern "C" int __wrap_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     int ready = __real_poll(fds, nfds, 0);
-    if (ready != 0 || timeout == 0 || emscripten_is_main_runtime_thread()) return ready;
+    if (ready != 0 || timeout == 0) return ready;
+    bool main = emscripten_is_main_runtime_thread();
     double end = emscripten_get_now() + timeout;
     while (ready == 0 && (timeout < 0 || emscripten_get_now() < end)) {
-        usleep(2000);
+        if (main)
+            emscripten_sleep(2);
+        else
+            usleep(2000);
         ready = __real_poll(fds, nfds, 0);
     }
     return ready;

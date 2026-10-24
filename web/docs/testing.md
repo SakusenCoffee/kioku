@@ -131,5 +131,7 @@ with Enter.
 | Loads; talks to `anki.us.production.amboss.com` through the relay | ✅ (after the relay change) |
 | Onboarding / login dialog | ✅ renders (after the localhost and COEP fixes) |
 | `ambossAddon is not defined` once at start | ⚠️ its inline script is in `web_content.head`, before its own scripts; same order on the desktop |
-| Logging in, Qbank widget, article tooltips | ⏳ not tried |
+| Log in through its form (test account from Kioku's `.env`) | ✅ logged in; its "Mobile Support" intro follows (after the main-thread `poll()` fix) |
+| After a reload: still logged in; AMBOSS menu, toolbar button, Qbank widget on the deck list | ✅ |
+| Article tooltips in cards, Qbank session | ⏳ not tried (needs an AMBOSS-matched deck) |
 

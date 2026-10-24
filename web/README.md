@@ -7,6 +7,13 @@ linked into one static `kioku.wasm`, the same design as
 early port, not something to ship: studying works, but nothing survives a
 reload yet.
 
+> [!WARNING]
+> Experimental and unstable, for testing only: it may crash or lose data.
+> Back up your collection **with scheduling information** first (a
+> `.colpkg`, or an `.apkg` with "Include scheduling information"), and sync
+> with a **test AnkiWeb account**, not the one you use. The app page says
+> the same when it opens.
+
 <img src="images/web-decks.png" width="270"> <img src="images/web-add.png" width="270">
 <img src="images/web-review.png" width="270"> <img src="images/web-import.png" width="270">
 
@@ -38,7 +45,8 @@ and PyQt6 sdists), plus nightly Rust with `rust-src`, `protoc`, `uvx`,
 Python 3.14, Ninja and Chrome.
 
 ```sh
-tools/fetch_deps.sh      # Emscripten 4.0.7, Qt 6.11 for WebAssembly
+cd web
+tools/fetch_deps.sh      # Emscripten 4.0.7, Qt 6.11 for WebAssembly, fonts
 tools/build_python.sh    # CPython 3.14 for Emscripten (patched; builds OpenSSL first)
 tools/build_rust.sh      # Anki's Rust core for wasm32-unknown-emscripten
 tools/build_rpds.sh      # rpds-py (jsonschema, add-on manifests)
@@ -48,7 +56,7 @@ tools/build.sh           # build/cmake: kioku.wasm, app.html, sw.js, ...
 python3 tools/serve.py build/cmake 8765
 ```
 
-Open <http://127.0.0.1:8765/app.html> (or `localhost`). Other machines
+Open <http://127.0.0.1:8765/> (or `localhost`). Other machines
 can't use plain `http://` with a LAN address: service workers and threads
 need a secure context (`https://`, `localhost` or `127.0.0.1`).
 The app's Python and `shell/` are packed into `app.data` and copied by

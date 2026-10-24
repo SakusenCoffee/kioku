@@ -5,3 +5,4 @@ node_modules/
 !images/*.png
 .DS_Store
 cloudflare/.wrangler/
+test-deck/

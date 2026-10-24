@@ -34,6 +34,8 @@ await client.send("Debugger.enable");
 let started = false;
 page.on("console", (m) => { if (m.text().includes("Starting Anki")) started = true; });
 await page.goto(process.env.URL || "http://127.0.0.1:8765/app.html");
+// the "experimental" notice would take the clicks and keys
+await page.evaluate(() => document.querySelector("#warning")?.close());
 while (!started) await new Promise((r) => setTimeout(r, 300));
 await new Promise((r) => setTimeout(r, 1500));
 if (!process.env.NOFIRSTRUN) {

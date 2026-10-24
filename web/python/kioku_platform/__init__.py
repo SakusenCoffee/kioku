@@ -17,6 +17,7 @@ from .webview import WebView, delete_cookies, set_cookie
 logger = logging.getLogger("kioku.platform")
 
 HOME = os.path.expanduser("~")
+FONTS = "/fonts"
 
 
 def prepare() -> None:
@@ -32,10 +33,44 @@ def prepare() -> None:
     _ignore_socket_options()
     web.start()
     http.setup(web.js("origin"))
+    _add_fonts()
     _fill_screen()
     _save_after_changes()
     if dev_allowed():
         web.listen("devexec", _devexec)
+
+
+def _add_fonts() -> None:
+    """Qt for WebAssembly brings only DejaVu, so Chinese, Japanese, Korean,
+    Thai and Indic text showed as boxes (the language list, Browse). The
+    Noto fonts in kioku.data (tools/fetch_deps.sh) are added once Anki's
+    QApplication exists, before its first dialog, as the fallback for
+    their scripts."""
+    import aqt
+    from PyQt6.QtCore import QChar
+    from PyQt6.QtGui import QFontDatabase
+
+    fallbacks = {
+        "Noto Sans SC": ("Han", "Hiragana", "Katakana", "Bopomofo", "Common"),
+        "Noto Sans KR": ("Hangul",),
+        "Noto Sans Thai": ("Thai",),
+        "Noto Sans Oriya": ("Oriya",),
+        "Noto Sans Devanagari": ("Devanagari",),
+    }
+    init = aqt.AnkiApp.__init__
+
+    def init_with_fonts(self: Any, *args: Any, **kwargs: Any) -> None:
+        init(self, *args, **kwargs)
+        for name in sorted(os.listdir(FONTS)):
+            if QFontDatabase.addApplicationFont(os.path.join(FONTS, name)) < 0:
+                logger.warning("font not loaded: %s", name)
+        for family, scripts in fallbacks.items():
+            for script in scripts:
+                QFontDatabase.addApplicationFallbackFontFamily(
+                    getattr(QChar.Script, f"Script_{script}"), family
+                )
+
+    aqt.AnkiApp.__init__ = init_with_fonts  # type: ignore[method-assign]
 
 
 def _fill_screen() -> None:

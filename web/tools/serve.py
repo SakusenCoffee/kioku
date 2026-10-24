@@ -35,6 +35,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.startswith(RELAY) and self.headers.get("Upgrade", "").lower() == "websocket":
             self.relay(self.path[len(RELAY) :])
+        elif self.path == "/":
+            # like cloudflare/_redirects
+            self.send_response(302)
+            self.send_header("Location", "/app.html")
+            self.end_headers()
         else:
             super().do_GET()
 

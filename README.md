@@ -32,7 +32,12 @@
 </p>
 
 <p align="center">
+  <a href="https://kioku.krmanik.workers.dev"><img alt="Try in the browser (experimental)" src="https://img.shields.io/badge/Try-Web%20%C2%B7%20experimental-B45309?labelColor=333333&style=for-the-badge&logo=googlechrome&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="https://krmanik.github.io/kioku/"><b>User manual</b></a> ·
+  <a href="web/README.md">Web version</a> ·
   <a href="https://github.com/krmanik/kioku/releases/latest">Releases</a> ·
   <a href="https://github.com/krmanik/kioku/issues">Issues</a>
 </p>

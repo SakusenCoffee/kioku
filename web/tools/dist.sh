@@ -22,6 +22,10 @@ for f in kioku.wasm kioku.data; do
     fi
     cp "$SRC/$f.br" "$OUT/"
 done
+# their real sizes, for the page's download progress (Content-Length is
+# the compressed size)
+printf '{"kioku.wasm": %d, "kioku.data": %d, "app.data": %d}\n' \
+    "$(wc -c < "$SRC/kioku.wasm")" "$(wc -c < "$SRC/kioku.data")" "$(wc -c < "$SRC/app.data")" > "$OUT/sizes.json"
 for f in "$OUT"/*; do
     if [ "$(wc -c < "$f")" -gt "$LIMIT" ]; then
         echo "$f is over Cloudflare's 25 MiB limit" >&2

@@ -192,3 +192,11 @@ and `cloudflare/` with `wrangler dev` (wrangler 4.148.0), then deployed.
 | 1 GB of files (random) in `/home/web_user`, saved, reload | ✅ all back; written 9.5 s; start ~10 s slower; JS heap ~1.1 GB |
 | 3 GB of files, saved, reload | ✅ all back; written 28.5 s; JS heap ~3.1 GB; quota reported 11–13 GB |
 | Notice on opening; `navigator.storage.persist()` after OK | ✅ shown; ✅ asked (headless: not granted) |
+
+### 2026-10-24 i: download progress (Chrome, headless, macOS)
+
+| Test | Result |
+| --- | --- |
+| Worker at `http://127.0.0.1:8787`, network throttled to 4 MB/s: loading screen | ✅ bar and "Downloading Kioku… N%", 2% → 96% in ~11 s, then "Starting Kioku…" |
+| Same, notice open | ✅ "Downloading… N%" next to OK |
+| After the download | ✅ first-run language list |

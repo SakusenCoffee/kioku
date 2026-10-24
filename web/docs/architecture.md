@@ -150,7 +150,9 @@ plan) `build/dist` is served as static assets with `_headers`, and
 - `/kioku.wasm`, `/kioku.data`: Cloudflare takes files up to 25 MiB, so
   `tools/dist.sh` stores them brotli-compressed (17 MB and 5.5 MB) and the
   Worker serves them with `Content-Encoding: br` (`encodeBody: "manual"`);
-  the browser undoes it.
+  the browser undoes it. Content-Length is then the compressed size, so
+  the page's download progress (`shell/app.html` counts the bodies as they
+  arrive) takes the real sizes from `sizes.json`, written by `dist.sh`.
 - `/__relay/<host>:<port>`: the same relay as `tools/serve.py`, with
   `connect()` from `cloudflare:sockets`. Anyone can send any `Origin`
   outside a browser, so on a public URL the host list (`RELAY_ALLOW` in

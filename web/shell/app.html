@@ -8,6 +8,8 @@
       html, body { padding: 0; margin: 0; overflow: hidden; height: 100%; background: #f5f5f5; }
       #screen { width: 100%; height: 100%; }
       #status { font: 15px system-ui, sans-serif; color: #555; text-align: center; margin-top: 30vh; }
+      #status progress { display: block; width: 240px; max-width: calc(100% - 32px); margin: 12px auto 0; }
+      #warning .progress { float: left; margin-top: 9px; color: #777; }
       #warning { max-width: 480px; width: calc(100% - 32px); box-sizing: border-box; padding: 24px;
         border: 0; border-radius: 12px; font: 15px/1.5 system-ui, sans-serif; color: #222; background: #fff;
         box-shadow: 0 12px 40px rgb(0 0 0 / 0.25); }
@@ -21,12 +23,13 @@
       @media (prefers-color-scheme: dark) {
         html, body { background: #2c2c2c; }
         #status { color: #aaa; }
+        #warning .progress { color: #aaa; }
         #warning { color: #eee; background: #3a3a3a; }
       }
     </style>
   </head>
   <body>
-    <div id="status">Loading Kioku…</div>
+    <div id="status"><span>Loading Kioku…</span><progress hidden></progress></div>
     <dialog id="warning">
       <h2>Experimental: for testing only</h2>
       <ul>
@@ -37,7 +40,7 @@
         <li><b>Sync with a test AnkiWeb account</b>, not the one you actually use.</li>
         <li>Your data stays in this browser; clearing site data deletes it.</li>
       </ul>
-      <form method="dialog"><button autofocus>OK</button></form>
+      <form method="dialog"><span class="progress"></span><button autofocus>OK</button></form>
     </dialog>
     <div id="screen" style="display: none"></div>
     <script src="kioku-web.js"></script>
@@ -53,6 +56,66 @@
       warning.addEventListener("close", () => {
         navigator.storage?.persist?.().then((granted) => console.log("Kioku: persistent storage", granted));
       });
+      // download progress of the wasm and the data packages, counted as
+      // their bodies arrive (Emscripten's own counter takes Content-Length,
+      // which on Cloudflare is the brotli-compressed size: tools/dist.sh
+      // writes the real sizes to sizes.json)
+      const progress = (function () {
+        const names = ["kioku.wasm", "kioku.data", "app.data"];
+        const downloads = {};
+        const text = document.querySelector("#status span");
+        const bar = document.querySelector("#status progress");
+        const note = document.querySelector("#warning .progress");
+        const sizes = fetch("sizes.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+        const show = () => {
+          const all = Object.values(downloads);
+          const loaded = all.reduce((sum, d) => sum + d.loaded, 0);
+          const total = all.reduce((sum, d) => sum + d.total, 0);
+          if (all.length === names.length && all.every((d) => d.done)) {
+            text.textContent = "Starting Kioku…";
+            bar.hidden = true;
+            note.textContent = "Starting…";
+          } else if (total && all.every((d) => d.total)) {
+            const percent = Math.min(99, Math.floor((100 * loaded) / total));
+            text.textContent = `Downloading Kioku… ${percent}%`;
+            bar.hidden = false;
+            bar.max = total;
+            bar.value = loaded;
+            note.textContent = `Downloading… ${percent}%`;
+          } else {
+            const mb = (loaded / 1e6).toFixed(0);
+            text.textContent = `Downloading Kioku… ${mb} MB`;
+            note.textContent = `Downloading… ${mb} MB`;
+          }
+        };
+        const realFetch = window.fetch;
+        window.fetch = async function (input, init) {
+          const response = await realFetch.call(this, input, init);
+          const name = new URL(input.url ?? input, location.href).pathname.split("/").pop();
+          if (!names.includes(name) || !response.ok || !response.body) return response;
+          const length = Number(response.headers.get("Content-Length"));
+          const size = (await sizes)[name] ?? (response.headers.has("Content-Encoding") ? 0 : length);
+          const download = (downloads[name] = { loaded: 0, total: size || 0, done: false });
+          show();
+          const counted = response.body.pipeThrough(
+            new TransformStream({
+              transform(chunk, controller) {
+                download.loaded += chunk.byteLength;
+                show();
+                controller.enqueue(chunk);
+              },
+              flush() {
+                download.done = true;
+                show();
+              },
+            }),
+          );
+          // headers kept: compileStreaming needs Content-Type application/wasm
+          const { status, statusText, headers } = response;
+          return new Response(counted, { status, statusText, headers });
+        };
+        return { done: () => { window.fetch = realFetch; note.textContent = ""; } };
+      })();
       (async function () {
         const status = document.querySelector("#status");
         const screen = document.querySelector("#screen");
@@ -65,8 +128,13 @@
           await qtLoad({
             arguments: ["--kioku"],
             qt: {
-              onLoaded: () => { status.style.display = "none"; screen.style.display = "block"; },
+              onLoaded: () => {
+                progress.done();
+                status.style.display = "none";
+                screen.style.display = "block";
+              },
               onExit: (exit) => {
+                progress.done();
                 status.textContent = "Kioku has stopped" + (exit.text ? `: ${exit.text}` : ".");
                 status.style.display = "block";
                 screen.style.display = "none";

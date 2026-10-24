@@ -301,6 +301,18 @@ def _is_small_dialog(w: QWidget, avail: QRect) -> bool:
     return _card_size(w, avail).height() <= avail.height() * 0.7
 
 
+def _add_cancel(w: QWidget) -> None:
+    """Anki's progress window has no buttons (on the desktop, its window's
+    close button cancels a sync or Check Media), so it filled the screen and
+    flashed on every sync. With a Cancel button it is a small card."""
+    layout = w.layout()
+    if layout is None:
+        return
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel, w)
+    buttons.rejected.connect(w.close)
+    layout.addWidget(buttons)
+
+
 def _card_size(w: QWidget, avail: QRect) -> QSize:
     width = min(avail.width() - 2 * CARD_MARGIN, max(w.sizeHint().width(), 480))
     layout = w.layout()
@@ -412,6 +424,8 @@ class WindowManager(QObject):
             self._fit_message_box(w, avail)
             self._add_border(w)
             return
+        if type(w).__name__ == "ProgressDialog" and w.findChild(QDialogButtonBox) is None:
+            _add_cancel(w)
         if self._bar(w) is None and _is_small_dialog(w, avail):
             w.setMinimumSize(0, 0)
             _center(w, _card_size(w, avail), avail)

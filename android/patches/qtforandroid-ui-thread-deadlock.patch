@@ -1,0 +1,99 @@
+diff --git a/src/plugins/platforms/android/androidjniaccessibility.cpp b/src/plugins/platforms/android/androidjniaccessibility.cpp
+index ab6d17a..1da31ef 100644
+--- a/src/plugins/platforms/android/androidjniaccessibility.cpp
++++ b/src/plugins/platforms/android/androidjniaccessibility.cpp
+@@ -68,6 +68,15 @@ namespace QtAndroidAccessibility
+         m_accessibilityContext = new QObject(parent);
+     }
+ 
++    // Kioku: runs the calls runInObjectContext() posted from the Android UI
++    // thread, which waits for them holding the deadlock protector. For the
++    // Qt main thread when it needs the protector itself.
++    void answerPendingCalls()
++    {
++        if (m_accessibilityContext)
++            QCoreApplication::sendPostedEvents(m_accessibilityContext, QEvent::MetaCall);
++    }
++
+     template <typename Func, typename Ret>
+     void runInObjectContext(QObject *context, Func &&func, Ret *retVal)
+     {
+diff --git a/src/plugins/platforms/android/androidjniaccessibility.h b/src/plugins/platforms/android/androidjniaccessibility.h
+index 3acc380..353062e 100644
+--- a/src/plugins/platforms/android/androidjniaccessibility.h
++++ b/src/plugins/platforms/android/androidjniaccessibility.h
+@@ -25,6 +25,7 @@ namespace QtAndroidAccessibility
+     void notifyScrolledEvent(uint accessibilityObjectId);
+     void notifyAnnouncementEvent(uint accessibilityObjectId, const QString &message);
+     void createAccessibilityContextObject(QObject *parent);
++    void answerPendingCalls();
+ }
+ 
+ QT_END_NAMESPACE
+diff --git a/src/plugins/platforms/android/qandroidplatformopenglwindow.cpp b/src/plugins/platforms/android/qandroidplatformopenglwindow.cpp
+index 27fbd95..c41bd5a 100644
+--- a/src/plugins/platforms/android/qandroidplatformopenglwindow.cpp
++++ b/src/plugins/platforms/android/qandroidplatformopenglwindow.cpp
+@@ -5,11 +5,15 @@
+ 
+ #include "qandroidplatformopenglwindow.h"
+ 
++#include "androidjniaccessibility.h"
+ #include "androidjnimain.h"
+ #include "qandroideventdispatcher.h"
+ #include "qandroidplatformscreen.h"
++#include "qandroidinputcontext.h"
+ 
+ #include <QSurfaceFormat>
++#include <QtCore/qcoreapplication.h>
++#include <QtCore/qthread.h>
+ #include <QtGui/private/qwindow_p.h>
+ #include <QtGui/qguiapplication.h>
+ 
+@@ -21,6 +25,25 @@
+ 
+ QT_BEGIN_NAMESPACE
+ 
++// Kioku: answers the calls the Android UI thread makes to this (the Qt main)
++// thread while holding the deadlock protector: keyboard queries
++// (QAndroidInputContext's runOnQtThread()) and accessibility queries
++// (QtAndroidAccessibility's runInObjectContext()), which accessibility
++// services such as password managers make without TalkBack.
++static void answerUiThread()
++{
++    if (QAndroidInputContext *ic = QAndroidInputContext::androidInputContext())
++        QCoreApplication::sendPostedEvents(ic, QEvent::MetaCall);
++    QtAndroidAccessibility::answerPendingCalls();
++}
++
++// Kioku: for KiokuBridge (android/src/kioku_android.cpp), which waits for the
++// UI thread too. Qt main thread only.
++extern "C" Q_DECL_EXPORT void kioku_answer_ui_thread()
++{
++    answerUiThread();
++}
++
+ QAndroidPlatformOpenGLWindow::QAndroidPlatformOpenGLWindow(QWindow *window, EGLDisplay display)
+     :QAndroidPlatformWindow(window), m_eglDisplay(display)
+ { }
+@@ -61,9 +84,17 @@ EGLSurface QAndroidPlatformOpenGLWindow::eglSurface(EGLConfig config)
+     if (!m_androidSurfaceCreated) {
+         static constexpr char funcName[] = "QAndroidPlatformOpenGLWindow::eglSurface()";
+         QtAndroidPrivate::AndroidDeadlockProtector protector(funcName);
+-        if (!protector.acquire()) {
+-            qFatal("Failed to acquire deadlock protector for %s.", funcName);
+-            return m_eglSurface;
++        // Kioku: the protector is usually held by a keyboard or accessibility
++        // query from the Android UI thread, which waits for this thread.
++        // Answer it and try again instead of aborting.
++        int tries = 0;
++        while (!protector.acquire()) {
++            if (++tries > 1000) {
++                qFatal("Failed to acquire deadlock protector for %s.", funcName);
++                return m_eglSurface;
++            }
++            answerUiThread();
++            QThread::msleep(1);
+         }
+ 
+         createSurface();

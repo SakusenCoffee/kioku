@@ -85,6 +85,9 @@ public class KiokuBridge {
     /** Implemented in src/kioku_android.cpp. */
     static native void nativeEvent(String json);
     static native String nativeRequest(String json, int timeoutMs);
+    private static native boolean nativeLockUi();
+    private static native void nativeUnlockUi();
+    private static native void nativeAnswerUi();
 
     private static void event(JSONObject json) {
         try {
@@ -119,9 +122,27 @@ public class KiokuBridge {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return work.call();
         }
-        FutureTask<T> task = new FutureTask<>(work);
-        ui.post(task);
-        return task.get();
+        // Qt's deadlock protector (src/kioku_android.cpp): while it is held,
+        // the UI thread's keyboard and accessibility queries give up instead
+        // of waiting for Qt's thread. If a query holds it, answer it and retry.
+        boolean locked;
+        int tries = 0;
+        while (!(locked = nativeLockUi()) && ++tries < 5000) {
+            nativeAnswerUi();
+            Thread.sleep(1);
+        }
+        if (!locked) {
+            Log.w(TAG, "waiting for the UI thread without the deadlock protector");
+        }
+        try {
+            FutureTask<T> task = new FutureTask<>(work);
+            ui.post(task);
+            return task.get();
+        } finally {
+            if (locked) {
+                nativeUnlockUi();
+            }
+        }
     }
 
     /** The entry point for Python. Returns a JSON value or "null". */

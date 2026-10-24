@@ -19,10 +19,14 @@
 #include <QMetaObject>
 #include <QSemaphore>
 #include <QString>
+#include <QThread>
+#include <QtCore/private/qjnihelpers_p.h>
 
+#include <iterator>
 #include <memory>
 
 #include <android/log.h>
+#include <dlfcn.h>
 
 static const char *BRIDGE = "io/ankidesk/kioku/KiokuBridge";
 static PyObject *event_handler = nullptr;
@@ -89,6 +93,38 @@ static jstring native_request(JNIEnv *env, jclass, jstring json, jint timeout_ms
         return nullptr;
     }
     return env->NewStringUTF(request->reply.constData());
+}
+
+// Qt's rule for a thread that waits for Android's UI thread: hold the
+// deadlock protector meanwhile. The UI thread's keyboard and accessibility
+// queries, which wait for Qt's thread, take it too, and give up when they
+// can't (accessibility services such as password managers query all the
+// time, TalkBack or not).
+static jboolean native_lock_ui(JNIEnv *, jclass) {
+    return QtAndroidPrivate::acquireAndroidDeadlockProtector();
+}
+
+static void native_unlock_ui(JNIEnv *, jclass) {
+    QtAndroidPrivate::releaseAndroidDeadlockProtector();
+}
+
+// When the UI thread holds the protector it may be waiting for Qt's thread:
+// on that thread, answer it. kioku_answer_ui_thread() is in the platform
+// plugin (patches/qtforandroid-ui-thread-deadlock.patch).
+static void native_answer_ui(JNIEnv *, jclass) {
+    static void (*answer)() = [] {
+        void *plugin = dlopen("libplugins_platforms_qtforandroid_" KIOKU_ANDROID_ABI ".so",
+                              RTLD_NOW | RTLD_NOLOAD);
+        void *f = dlsym(plugin ? plugin : RTLD_DEFAULT, "kioku_answer_ui_thread");
+        if (!f) {
+            __android_log_print(ANDROID_LOG_WARN, "Kioku", "kioku_answer_ui_thread not found");
+        }
+        return reinterpret_cast<void (*)()>(f);
+    }();
+    QCoreApplication *app = QCoreApplication::instance();
+    if (answer && app && QThread::currentThread() == app->thread()) {
+        answer();
+    }
 }
 
 static PyObject *py_call(PyObject *, PyObject *args) {
@@ -163,8 +199,11 @@ extern "C" PyObject *PyInit__kioku_android(void) {
         {"nativeEvent", "(Ljava/lang/String;)V", reinterpret_cast<void *>(native_event)},
         {"nativeRequest", "(Ljava/lang/String;I)Ljava/lang/String;",
          reinterpret_cast<void *>(native_request)},
+        {"nativeLockUi", "()Z", reinterpret_cast<void *>(native_lock_ui)},
+        {"nativeUnlockUi", "()V", reinterpret_cast<void *>(native_unlock_ui)},
+        {"nativeAnswerUi", "()V", reinterpret_cast<void *>(native_answer_ui)},
     };
-    if (!env.registerNativeMethods(BRIDGE, natives, 2)) {
+    if (!env.registerNativeMethods(BRIDGE, natives, std::size(natives))) {
         PyErr_SetString(PyExc_ImportError, "cannot register KiokuBridge's native methods");
         return nullptr;
     }

@@ -611,3 +611,17 @@ Reproduced on the iPhone and the Android emulator with the user's add-ons (Enhan
 | Emulator landscape (`user_rotation 1`) | | no side insets (no cutout), bottom bar to the edge |
 
 Not changed: the web view lags behind the window for a moment while the phone rotates; add-on layouts themselves (Custom background crops the photo separately in the top bar, main view and bottom bar; an add-on's overview stats squeeze words) are for their developers.
+
+## Accessibility-service freeze, Android (2026-10-24)
+
+Reported on a OnePlus CPH2447 (Android 16) with Kioku 0.2.2 and 0.2.3: opening Preferences or Tools froze the window, then an ANR kill; accessibility services on (Bitwarden autofill, Join, Sleep as Android), TalkBack off. All 8 ANR traces show the same cycle: Qt's thread in `KiokuBridge.onUiThread` (`webview.title`) → `FutureTask.get`, the UI thread in `QtNativeAccessibility.populateNode` → `QLatch::waitInternal`. The crash buffer also has the `qFatal` abort in the patched `eglSurface()` under a menu popup.
+
+Emulator (Android 16 image), Switch Access turned on as the accessibility service (`settings put secure enabled_accessibility_services …SwitchAccessService`), native Kioku, OpenGL video driver. With the Software driver every accessibility call bails out early (`no valid surface`), so no repro there.
+
+| Check | Without the protector in `onUiThread` (same build otherwise) | Fixed build |
+| --- | --- | --- |
+| Start-up | blank window, ANR on the first tap; dropbox `data_app_anr` trace shows the reported cycle (`childIdListForAccessibleObject` → `QLatch` vs `onUiThread` → `FutureTask.get`) | deck list, 3 of 3 launches |
+| Stress: `webview.title` from a 0 ms `QTimer` (146k calls) with Tools menu and Preferences opened | — | no ANR; 12–92 accessibility queries per run gave up (`accessing main thread could lead to deadlock`) where they used to block; slowest call 1.05 s (during start-up) |
+| Tools menu, Preferences | — | open; app answers dev commands throughout |
+
+Not covered: a password manager itself (none on the emulator); the reporter's phone.

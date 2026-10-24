@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(Kioku LANGUAGES C CXX)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg)
+find_package(Qt6 REQUIRED COMPONENTS Core CorePrivate Gui Widgets Network Svg)
 
 # ANKI_TAG, PYQT6_SIP_VERSION, ... from ../shared/versions.env
 file(STRINGS ${CMAKE_SOURCE_DIR}/../shared/versions.env VERSION_LINES REGEX "^[A-Z_0-9]+=")
@@ -37,12 +37,13 @@ set(RUST_LIBS
 
 qt_add_executable(Kioku src/main.cpp src/kioku_android.cpp)
 target_include_directories(Kioku PRIVATE ${KIOKU_PYTHON_INCLUDE})
-target_compile_definitions(Kioku PRIVATE KIOKU_PYTHON_VERSION="${PYTHON_VERSION}")
+target_compile_definitions(Kioku PRIVATE KIOKU_PYTHON_VERSION="${PYTHON_VERSION}"
+    KIOKU_ANDROID_ABI="${ANDROID_ABI}")
 target_link_libraries(Kioku PRIVATE
     pyqt6_QtCore pyqt6_QtGui pyqt6_QtWidgets pyqt6_QtNetwork pyqt6_QtSvg
     pyqt6_sip
     ${RUST_LIBS}
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg
+    Qt6::Core Qt6::CorePrivate Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg
     ${PYTHON_PREFIX}/lib/libpython${PYTHON_VERSION}.so
     log android z
 )

@@ -1,3 +1,36 @@
+diff -ru a/Lib/ctypes/__init__.py b/Lib/ctypes/__init__.py
+--- a/Lib/ctypes/__init__.py	2026-10-24 14:51:32
++++ b/Lib/ctypes/__init__.py	2026-10-24 14:51:32
+@@ -553,6 +553,14 @@
+     pythonapi = PyDLL("libpython%d.%d.so" % _sys.version_info[:2])
+ elif _sys.platform == "cygwin":
+     pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])
++elif _sys.platform == "emscripten":
++    # kioku web: linked statically (--disable-wasm-dynamic-linking), so there
++    # is no dlopen() and PyDLL(None) raised OSError, failing `import ctypes`
++    # (add-ons import it for macOS/Windows code they never run here)
++    try:
++        pythonapi = PyDLL(None)
++    except OSError:
++        pythonapi = None
+ else:
+     pythonapi = PyDLL(None)
+ 
+diff -ru a/Lib/ctypes/util.py b/Lib/ctypes/util.py
+--- a/Lib/ctypes/util.py	2026-10-24 14:59:22
++++ b/Lib/ctypes/util.py	2026-10-24 14:59:22
+@@ -443,8 +443,10 @@
+ # https://man.freebsd.org/cgi/man.cgi?query=dl_iterate_phdr
+ # https://man.openbsd.org/dl_iterate_phdr
+ # https://docs.oracle.com/cd/E88353_01/html/E37843/dl-iterate-phdr-3c.html
++# kioku web: not on emscripten, where CDLL(None) raised OSError at import
++# (linked statically, no dlopen()); there are no shared libraries to list
+ if (os.name == "posix" and
+-    sys.platform not in {"darwin", "ios", "tvos", "watchos"}):
++    sys.platform not in {"darwin", "ios", "tvos", "watchos", "emscripten"}):
+     import ctypes
+     if hasattr((_libc := ctypes.CDLL(None)), "dl_iterate_phdr"):
+ 
 diff -ru a/Makefile.pre.in b/Makefile.pre.in
 --- a/Makefile.pre.in	2026-10-23 20:37:07
 +++ b/Makefile.pre.in	2026-10-23 20:37:07

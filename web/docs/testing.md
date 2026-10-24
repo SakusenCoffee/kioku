@@ -200,3 +200,14 @@ and `cloudflare/` with `wrangler dev` (wrangler 4.148.0), then deployed.
 | Worker at `http://127.0.0.1:8787`, network throttled to 4 MB/s: loading screen | ✅ bar and "Downloading Kioku… N%", 2% → 96% in ~11 s, then "Starting Kioku…" |
 | Same, notice open | ✅ "Downloading… N%" next to OK |
 | After the download | ✅ first-run language list |
+
+### 2026-10-24 j: Onigiri add-on (1011095603, 2.0.2-Bento; Chrome, headless, macOS)
+
+| Test | Result |
+| --- | --- |
+| `import ctypes`, `import ctypes.util` | ✅ (failed with `OSError: dynamic linking not enabled`); `ctypes.pythonapi` is `None`, `find_library("objc")` is `None` |
+| Get Add-ons code path (`download_addons`, 18 MB through the relay) | ✅ installed |
+| Restart: add-on loads | ✅ (failed in `integrations/mac_titlebar.py` before) |
+| Welcome screen, Onigiri main menu (sidebar, Ready to go, decks, stats, activity heatmap), Onigiri menu | ✅ |
+| Onigiri › Onigiri Settings | ✅ opens and renders |
+| `NotFoundError: insertBefore` from its `web/injector.js:31` at each deck list render | ⚠️ the add-on's own bug, not the port's: `#deck-list-header` and `#deck-list-container` are inside a `<section>`, but it inserts into `.sidebar-expanded-content`; the same on the desktop. Last call of its `init()`, nothing skipped |

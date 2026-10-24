@@ -45,6 +45,7 @@ is unchanged.
 | `undefined symbol _Py_LibHacl_Hacl_Hash_MD5_*` | the HACL hash objects aren't in `libpython3.14.a` | link `Modules/_hacl/*.o` |
 | ctypes: `Unable to grow wasm table` | CPython's own link sets it, ours didn't | `-sALLOW_TABLE_GROWTH` |
 | Stale objects kept the trampoline after reconfiguring | CFLAGS changes don't trigger rebuilds | `make clean` before `make-host` |
+| Onigiri add-on: `import ctypes` failed (`OSError: dynamic linking not enabled`), also `import ctypes.util` | CPython is linked statically: no `dlopen()`, but `ctypes` opens the main program (`PyDLL(None)`) when imported and `ctypes.util` does too (`CDLL(None)`, for `dl_iterate_phdr`) | `Lib/ctypes` in `patches/cpython-3.14.0-emsdk-4.0.7.patch`: `pythonapi` is `None` on emscripten if that fails; `ctypes.util` skips the library listing on emscripten. Loading a library still raises `OSError`, which add-ons expect off their platform. The stdlib is packed at link time and isn't a link dependency: `rm build/cmake/kioku.js` before `tools/build.sh` |
 
 ## Building: PyQt6 and the app
 

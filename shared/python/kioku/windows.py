@@ -517,8 +517,38 @@ def adapt_browser(browser: Any, bar: TitleBar) -> None:
             )
 
     bar.add_action(tr.browsing_sidebar(), toggle)
+    # the sidebar's edge (a few px wide) was too thin to drag with a finger
+    browser.setStyleSheet(
+        browser.styleSheet() + " QMainWindow::separator { width: 16px; height: 16px; }"
+    )
     if _phone_width():
         browser.showSidebar(False)
+        _wrap_search_row(browser)
+        # the cards list and editor need 238px: beside the sidebar that made
+        # the window wider than the screen, its Sidebar button went off the
+        # edge and the sidebar couldn't be dragged wider
+        browser.centralWidget().setMinimumWidth(1)
+
+
+def _wrap_search_row(browser: Any) -> None:
+    """Add-on buttons beside the search box (AMBOSS: Start Qbank session)
+    ran past the screen's edge and squeezed the search box: give them a row
+    of their own below it."""
+    grid = browser.form.gridLayout
+    extras = []
+    for i in range(grid.count()):
+        w = grid.itemAt(i).widget()
+        row, col, _, _ = grid.getItemPosition(i)
+        # column 0: the cards/notes switch, 1: the search box
+        if w is not None and row == 0 and col > 1:
+            extras.append(w)
+    if not extras:
+        return
+    box = QHBoxLayout()
+    for w in extras:
+        grid.removeWidget(w)
+        box.addWidget(w)
+    grid.addLayout(box, 1, 0, 1, 2)
 
 
 ADAPTERS = {"Browser": adapt_browser}

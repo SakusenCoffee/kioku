@@ -120,6 +120,11 @@ PHONE_CSS = (
     "  .tippy-popper .tippy-tooltip { min-width: 0 !important; max-width: calc(100vw - 16px) !important; }"
     "  .tippy-popper img { max-width: 100%; height: auto; }"
     "}"
+    # a tap leaves :hover on the tapped element until the next tap elsewhere,
+    # so the top bar's Decks/Add/Browse/Stats kept their hover border
+    "@media (hover: none) {"
+    "  .header .hitem:hover { border-color: transparent; }"
+    "}"
 )
 
 

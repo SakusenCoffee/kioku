@@ -26,8 +26,8 @@ async function forward(request) {
   const empty = reply.status === 204 || reply.status === 304 || request.method === "HEAD";
   const headers = new Headers(reply.headers);
   // the app page is cross-origin isolated (threads need SharedArrayBuffer),
-  // so its iframes and their resources must opt in too
-  headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+  // so its iframes must be too (credentialless, see tools/serve.py)
+  headers.set("Cross-Origin-Embedder-Policy", "credentialless");
   headers.set("Cross-Origin-Resource-Policy", "same-origin");
   return new Response(empty ? null : reply.body, { status: reply.status, headers });
 }

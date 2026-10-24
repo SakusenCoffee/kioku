@@ -1,8 +1,9 @@
 """Serve a directory with the headers SharedArrayBuffer (pthreads) needs,
 and relay sockets: Emscripten turns connect() into a WebSocket, which the
 app page (kioku-web.js) points at /__relay/<host>:<port>; it is passed on
-over TCP (TLS stays inside wasm). Only AnkiWeb's hosts by default; more
-with KIOKU_RELAY_ALLOW="host:port,*.example.com:443".
+over TCP (TLS stays inside wasm). Only for the app page (Origin check):
+any host on port 443 (AnkiWeb, add-ons' services), other ports with
+KIOKU_RELAY_ALLOW="host:port,*.example.com:8080".
 Usage: serve.py <dir> [port]"""
 import base64
 import fnmatch
@@ -16,7 +17,7 @@ import sys
 import threading
 
 RELAY = "/__relay/"
-ALLOW = ["ankiweb.net:443", "*.ankiweb.net:443", "ankiuser.net:443", "*.ankiuser.net:443"] + [
+ALLOW = ["*:443"] + [
     a.strip() for a in os.environ.get("KIOKU_RELAY_ALLOW", "").split(",") if a.strip()
 ]
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -25,7 +26,9 @@ WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
-        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        # credentialless: cross-origin scripts and images (add-ons' CDNs) load
+        # without opting in, as they do on the desktop; Safari lacks it
+        self.send_header("Cross-Origin-Embedder-Policy", "credentialless")
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
@@ -36,6 +39,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def relay(self, target: str) -> None:
+        # WebSockets aren't bound by CORS: without this any website open in
+        # the browser could use the relay
+        if self.headers.get("Origin") != f"http://{self.headers.get('Host')}":
+            self.send_error(403, "relay is for the app page only")
+            return
         host, _, port = target.rpartition(":")
         if not port.isdigit() or not any(fnmatch.fnmatch(target.lower(), a) for a in ALLOW):
             self.send_error(403, f"not relayed: {target}")

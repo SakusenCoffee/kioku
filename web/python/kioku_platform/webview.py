@@ -127,6 +127,11 @@ class WebView:
         self.gen += 1
         self._url = url
         self.on_load_started()
+        # localhost is another origin than the page's 127.0.0.1: the service
+        # worker wouldn't see the request (AMBOSS builds its URLs that way)
+        local = f"http://localhost:{http._port}/"
+        if url.startswith(local):
+            url = f"http://127.0.0.1:{http._port}/" + url[len(local) :]
         web.js("load", self.id, url, self.gen)
 
     def load_html(self, html: str, base_url: str | None) -> None:

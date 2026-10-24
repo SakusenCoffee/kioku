@@ -87,4 +87,7 @@ is unchanged.
 | HyperTTS: `No module named '_ssl'`; Get Add-ons impossible | CPython built without OpenSSL; libffi's `.pc` still pointed at the repo's old folder, so that rebuild failed too | `tools/build_openssl.sh` (OpenSSL 3.5.4, `-pthread`), CPython `--with-openssl`, `libssl.a`/`libcrypto.a` linked; `.pc` prefixes fixed |
 | requests: `[Errno 50] Protocol not available` | Emscripten's sockets reject `setsockopt(TCP_NODELAY)` and `getsockopt(SO_TYPE)` (ssl) | `kioku_platform._ignore_socket_options()` |
 | requests: read timeout at once | Emscripten's `poll()` ignores its timeout | `-Wl,--wrap=poll`: worker threads re-poll every 2 ms until the timeout (`src/main.cpp`) |
+| AMBOSS: login dialog showed a broken page | it loads `http://localhost:<port>/_addons/…`, another origin than the page's `127.0.0.1`, so the service worker never saw it (404 from serve.py) | `WebView.load_url` rewrites `localhost:<port>` to `127.0.0.1:<port>` |
+| AMBOSS: `ambossAddon is not defined`, its CDN script blocked | COEP `require-corp` blocks cross-origin scripts without CORP headers | COEP `credentialless` (serve.py, sw.js): still cross-origin isolated in Chrome/Firefox; Safari doesn't support it |
+| AMBOSS/HyperTTS hosts refused by the relay (403) | allowlist had only AnkiWeb | relay checks `Origin` (only the app page may use it) and allows any host on 443 |
 | File › Import had no file picker | `pick_files` was a stub | `<input type=file>` opened from the triggering click, files copied into the wasm file system |

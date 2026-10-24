@@ -123,3 +123,13 @@ with Enter.
 | Tools › Add-ons › Get Add-ons code path (`download_addons`, Review Heatmap 1771074083) | ✅ downloaded and installed from AnkiWeb |
 | Add-ons still there after a reload | ✅ (`addons21` is under the saved folder) |
 
+### 2026-10-24 e: AMBOSS add-on (1044112126)
+
+| Test | Result |
+| --- | --- |
+| Get Add-ons, code 1044112126 | ✅ installed from AnkiWeb |
+| Loads; talks to `anki.us.production.amboss.com` through the relay | ✅ (after the relay change) |
+| Onboarding / login dialog | ✅ renders (after the localhost and COEP fixes) |
+| `ambossAddon is not defined` once at start | ⚠️ its inline script is in `web_content.head`, before its own scripts; same order on the desktop |
+| Logging in, Qbank widget, article tooltips | ⏳ not tried |
+

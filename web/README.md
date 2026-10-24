@@ -24,16 +24,15 @@ Sync with AnkiWeb or a self-hosted server works through a WebSocket→TCP
 relay in `tools/serve.py`; so do add-ons (Get Add-ons, Python HTTPS
 through OpenSSL built for wasm). The app can be served from any origin;
 [`cloudflare/`](cloudflare/) hosts it on Cloudflare Workers' free plan
-(running at <https://kioku.krmanik.workers.dev>). See
-[HANDOFF.md](HANDOFF.md) for what to do next.
+(running at <https://kioku.krmanik.workers.dev>).
 
 Download: `kioku.wasm` 94 MB (18.5 MB with brotli), `kioku.data` 34 MB
 (8.5 MB gzipped).
 
 ## Quick start
 
-Needs the Kioku repository next to this one (`../anki-desktop-for-android`,
-or set `KIOKU_REPO`) with its iOS dependencies fetched and built
+Runs from `web/` and uses the rest of the Kioku repository (`..`, or set
+`KIOKU_REPO`), with its iOS dependencies fetched and built
 (`ios/tools/fetch_deps.sh`, `ios/tools/build.sh` or at least its site-packages
 and PyQt6 sdists), plus nightly Rust with `rust-src`, `protoc`, `uvx`,
 Python 3.14, Ninja and Chrome.

@@ -5,7 +5,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg)
 
 # the Kioku repository (github.com/krmanik/kioku): PyQt6's sip module source
 # and the shared kioku Python package; see tools/env.sh
-set(KIOKU_REPO "${CMAKE_SOURCE_DIR}/../anki-desktop-for-android" CACHE PATH "Kioku repository")
+set(KIOKU_REPO "${CMAKE_SOURCE_DIR}/.." CACHE PATH "Kioku repository")
 set(DEPS ${CMAKE_SOURCE_DIR}/deps)
 set(CPY ${DEPS}/Python-3.14.0)
 set(CPY_BUILD ${CPY}/cross-build/wasm32-emscripten/build/python)

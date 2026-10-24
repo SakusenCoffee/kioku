@@ -93,6 +93,7 @@ Anki itself is in [Anki's manual](https://docs.ankiweb.net/).
 | [`ios/`](ios/) | iOS variant: Xcode build, WKWebView layer ([README](ios/README.md)) |
 | [`android/`](android/) | native Android variant: CMake/Gradle build, Android web view, Qt patches |
 | [`termux/`](termux/) | Termux variant: Android app, desktop shell, runtime build ([README](termux/README.md)) |
+| [`web/`](web/) | web variant: Anki in a browser tab, compiled to WebAssembly; Cloudflare hosting ([README](web/README.md)) |
 | [`shared/`](shared/) | shared by the native variants: Python layer, versions, icon, build tools |
 | [`docs/`](docs/) | [user manual](docs/manual/), [fixes log](docs/fixes.md), [test results](docs/testing.md), [privacy](docs/privacy.md) |
 

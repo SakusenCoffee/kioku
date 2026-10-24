@@ -585,3 +585,29 @@ The tabs now sit in a strip that scrolls sideways with a swipe (a first try with
 | Android emulator: Preferences shows the strip without arrow buttons; an adb swipe scrolls it to Backups … Advanced without changing the page; a tap on Experiments shows Experiments | ✅ |
 | iPhone (build installed over, data kept): Preferences shows the strip (824 px of tabs in a 408 px view); choosing Advanced scrolls it to the end | ✅ (chosen from a script; a finger swipe on iOS not tried by me) |
 | Samsung M30s | not tested: not connected |
+
+## Flicker and wide pages on phones (2026-10-24)
+
+Reported with an iOS screen recording (iPhone XS Max/11 Pro Max size, no description). The tester's add-ons add deck-list columns, so the list ran past the right edge; they pinched out (the page shrank into a dark frame and sprang back), panned the whole page sideways, then turned the phone to landscape. At 45–47 s, Sync showed a full-screen "Syncing… / Checking…" window and the deck list then came back drawn at desktop width for a frame. The dim look of the recording is the recording itself (the status bar is dimmed too).
+
+Reproduced on the iPhone and the Android emulator with the user's add-ons (Enhance main window 877182321, Custom background 3.0 1210908941 with the user's photo, Review Heatmap 1771074083) on a new "User 2" profile on the iPhone (the old User 2 backup, `build-testdata/colpkg/User2.colpkg`, imported into it). Frames caught with timed in-app screenshots every 40 ms (iOS) and `adb shell screenrecord` (Android). Code loaded into the running apps (no rebuild).
+
+| Check | Before | After |
+| --- | --- | --- |
+| iPhone: deck list refresh | ~0.5 s of the list drawn at 980 px (tiny), then snaps | straight to the phone layout |
+| iPhone: review → deck list, deck list → overview | — | straight to the next page (entering review shows one empty frame while the card loads, as before) |
+| iPhone + emulator: progress window (as in a sync) | full screen with "‹ Back", then a blank white frame (Android) | small card with Cancel over the screen; Cancel sets `want_cancel()` and the card stays until the task stops |
+| Emulator: three deck list refreshes | each one ~0.5–0.8 s with desktop column widths, then a jump | no jump |
+| iPhone: page width on the deck list with the three add-ons | 1795 px (screen 430) | 430 px; deck table scrolls inside its box |
+| iPhone: Review Heatmap on deck list and overview | 636 px SVG, off screen | scaled to 415 px / 370 px; still fits after its year button redraws it |
+| iPhone: Preferences | — | opens (a 403 "Unexpected API access" seen once came from reloading `webengine.py` inside the running app during testing; a clean start and the final reload don't show it) |
+| Host tests (`shared/tests/run.sh`, new: `test_progress.py`, `test_screenedges.py`, `with_viewport` in `test_webengine.py`) | | ✅ 90 passed |
+| iOS pinch-out bounce | | not testable from a script (`bouncesZoom` off) |
+| Bottom bar to the screen edge, iPhone | bar ended 34 px above the bottom; strip of window colour below | bar 95 px (61 + 34) reaches the bottom (931 of 932); the photo runs to the edge; buttons above the home indicator, in the deck list and in review (answer buttons) |
+| Bottom bar to the screen edge, emulator | bar ended 24 px above the bottom | reaches the bottom (913 of 914); buttons where they were |
+| Bar hidden in review (Anki's `BottomWebView.hide()`) | | window bottom margin back to 34 px; shown again: bar to the edge |
+| iPhone landscape (rotated by the user, then from a script with `requestGeometryUpdate`, both sides) | bottom bar to the edge, but 59 px strips of window colour left and right | views fill the width (932 of 932), the photo too; card text, deck list, Edit/More buttons and the menu bar ("File" at 65 px) clear of the notch; bottom bar padded 20 px |
+| iPhone back to portrait | | side padding and menu spacers back to 0, bottom 34 |
+| Emulator landscape (`user_rotation 1`) | | no side insets (no cutout), bottom bar to the edge |
+
+Not changed: the web view lags behind the window for a moment while the phone rotates; add-on layouts themselves (Custom background crops the photo separately in the top bar, main view and bottom bar; an add-on's overview stats squeeze words) are for their developers.

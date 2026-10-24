@@ -56,6 +56,7 @@ AT_DOCUMENT_END = 1
 POLICY_CANCEL = 0
 POLICY_ALLOW = 1
 FLEXIBLE_SIZE = 2 | 16  # UIViewAutoresizingFlexibleWidth | FlexibleHeight
+NO_INSET_ADJUSTMENT = 2  # UIScrollViewContentInsetAdjustmentNever
 A4 = (595.2, 841.8)  # points
 PDF_MARGIN = 36.0
 
@@ -326,6 +327,13 @@ class WebView:
         webview.setUIDelegate_(_ui_delegate)
         webview.setAutoresizingMask_(FLEXIBLE_SIZE)
         webview.setAllowsLinkPreview_(False)
+        scroll = prop(webview, "scrollView")
+        # pinching out shrank the page into a dark frame that sprang back
+        scroll.setBouncesZoom_(False)
+        # the bottom bar reaches into the home indicator's area and pads its
+        # page itself (kioku.screenedges); left to UIKit, the page was inset
+        # again and a band of the view's background showed under it
+        scroll.setContentInsetAdjustmentBehavior_(NO_INSET_ADJUSTMENT)
         if webview.respondsToSelector_(SEL("setInspectable:")):
             webview.setInspectable_(True)  # Safari Web Inspector
         self.webview = webview

@@ -12,7 +12,7 @@ from PyQt6.QtCore import QDateTime, QObject, QUrl
 from PyQt6.QtNetwork import QNetworkCookie
 from PyQt6.QtWidgets import QApplication
 
-from kioku import webengine
+from kioku import webengine, webscripts
 
 app = QApplication.instance() or QApplication([])
 
@@ -88,3 +88,25 @@ def test_page_with_profile_and_history(platform) -> None:
     assert history.backItem().url().toString() == "https://a.test/1"
     history.back()
     assert page._web.calls[-1] == "back"
+
+
+def test_set_html_has_viewport_from_the_start() -> None:
+    # Anki's stdHtml page: the meta right after <head>, the phone CSS after
+    # the page's own style sheets
+    page = (
+        "<!doctype html>\n<html><head><title>x</title>"
+        "<link rel=stylesheet href=deckbrowser.css></head><body></body></html>"
+    )
+    out = webscripts.with_viewport(page)
+    assert out.startswith("<!doctype html>")
+    assert out.index("<head>") < out.index('name="viewport"') < out.index("<title>")
+    assert out.index("deckbrowser.css") < out.index('id="kioku-phone"') < out.index("</head>")
+    assert webscripts.with_viewport(out) == out
+    # a fragment without <head>: after the doctype, never before it
+    out = webscripts.with_viewport("<!DOCTYPE html><p>hi</p>")
+    assert out.startswith("<!DOCTYPE html><meta")
+    assert webscripts.with_viewport("<p>hi</p>").startswith("<meta")
+    # a page with its own viewport keeps it
+    own = "<head><meta name=viewport content='width=500'></head>"
+    out = webscripts.with_viewport(own)
+    assert out.count("viewport") == 1 and 'id="kioku-phone"' in out

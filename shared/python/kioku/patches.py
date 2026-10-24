@@ -61,8 +61,10 @@ def apply() -> None:
     _patch_bar_heights()
     _patch_review_menu()
     _patch_full_screen()
+    _patch_screen_edges()
     _patch_splitters()
     _patch_update_check()
+    _patch_page_html()
 
 
 def _dark_mode() -> bool:
@@ -323,6 +325,12 @@ def _patch_full_screen() -> None:
     fullscreen.apply()
 
 
+def _patch_screen_edges() -> None:
+    from . import screenedges
+
+    screenedges.apply()
+
+
 def _patch_splitters() -> None:
     """Add-ons such as AMBOSS put Anki's main view into a splitter beside a
     side panel, with desktop minimum widths (main view 400 px, the AMBOSS
@@ -350,6 +358,22 @@ def _patch_splitters() -> None:
 
     QSplitter.addWidget = add_widget
     QSplitter.insertWidget = insert_widget
+
+
+def _patch_page_html() -> None:
+    """Anki serves its pages (deck list, overview, reviewer, the bars) from
+    its media server as /_anki/legacyPageData, without a viewport meta: put
+    one in, so they are laid out for the phone from the first paint."""
+    import aqt.mediasrv
+
+    from . import webscripts
+
+    set_page_html = aqt.mediasrv.MediaServer.set_page_html
+
+    def with_viewport(self, id, html, *args, **kwargs):  # type: ignore[no-untyped-def]
+        set_page_html(self, id, webscripts.with_viewport(html), *args, **kwargs)
+
+    aqt.mediasrv.MediaServer.set_page_html = with_viewport
 
 
 def _patch_update_check() -> None:

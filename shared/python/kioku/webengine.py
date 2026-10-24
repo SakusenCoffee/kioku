@@ -586,7 +586,7 @@ class QWebEnginePage(QObject, _Lenient):
         self._install_scripts()
         base = baseUrl.toString() if baseUrl and not baseUrl.isEmpty() else None
         self._last_load = None
-        self._web.load_html(html, base)
+        self._web.load_html(webscripts.with_viewport(html), base)
 
     def setContent(
         self, data: Any, mimeType: str = "", baseUrl: QUrl = QUrl()

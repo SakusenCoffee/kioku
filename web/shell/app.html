@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=0">
+    <title>Kioku</title>
+    <style>
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100%; background: #f5f5f5; }
+      #screen { width: 100%; height: 100%; }
+      #status { font: 15px system-ui, sans-serif; color: #555; text-align: center; margin-top: 30vh; }
+      #warning { max-width: 480px; width: calc(100% - 32px); box-sizing: border-box; padding: 24px;
+        border: 0; border-radius: 12px; font: 15px/1.5 system-ui, sans-serif; color: #222; background: #fff;
+        box-shadow: 0 12px 40px rgb(0 0 0 / 0.25); }
+      #warning::backdrop { background: rgb(0 0 0 / 0.4); }
+      #warning h2 { margin: 0 0 12px; font-size: 18px; }
+      #warning ul { margin: 0 0 20px; padding-left: 20px; }
+      #warning li { margin-bottom: 8px; }
+      #warning form { text-align: right; margin: 0; }
+      #warning button { font: inherit; font-weight: 600; padding: 8px 28px; border: 0; border-radius: 8px;
+        color: #fff; background: #2563eb; cursor: pointer; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #2c2c2c; }
+        #status { color: #aaa; }
+        #warning { color: #eee; background: #3a3a3a; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">Loading Kioku…</div>
+    <dialog id="warning">
+      <h2>Experimental: for testing only</h2>
+      <ul>
+        <li>This is an early, unstable version of Anki running in your browser. It may crash or lose data.</li>
+        <li><b>Back up first.</b> Before using a collection you care about, export it with scheduling
+          information from Anki desktop or your phone (File › Export: a .colpkg, or an .apkg with
+          “Include scheduling information”).</li>
+        <li><b>Sync with a test AnkiWeb account</b>, not the one you actually use.</li>
+        <li>Your data stays in this browser; clearing site data deletes it.</li>
+      </ul>
+      <form method="dialog"><button autofocus>OK</button></form>
+    </dialog>
+    <div id="screen" style="display: none"></div>
+    <script src="kioku-web.js"></script>
+    <script src="kioku.js"></script>
+    <script src="qtloader.js"></script>
+    <script>
+      // shown on every visit while the app loads behind it
+      const warning = document.querySelector("#warning");
+      warning.showModal();
+      // without persistent storage the browser may delete the collection
+      // (IndexedDB) when the disk runs low; Firefox asks, Chrome decides
+      // by itself. After OK, so it counts as the user's gesture
+      warning.addEventListener("close", () => {
+        navigator.storage?.persist?.().then((granted) => console.log("Kioku: persistent storage", granted));
+      });
+      (async function () {
+        const status = document.querySelector("#status");
+        const screen = document.querySelector("#screen");
+        try {
+          // Anki's pages are served by the service worker (sw.js), which
+          // passes their requests to Python; it must control the page's
+          // iframes before the first one loads
+          await navigator.serviceWorker.register("sw.js");
+          await navigator.serviceWorker.ready;
+          await qtLoad({
+            arguments: ["--kioku"],
+            qt: {
+              onLoaded: () => { status.style.display = "none"; screen.style.display = "block"; },
+              onExit: (exit) => {
+                status.textContent = "Kioku has stopped" + (exit.text ? `: ${exit.text}` : ".");
+                status.style.display = "block";
+                screen.style.display = "none";
+              },
+              entryFunction: window.kioku_entry,
+              containerElements: [screen],
+            },
+          });
+        } catch (e) {
+          console.error(e);
+          status.textContent = `Kioku could not start: ${e}`;
+        }
+      })();
+    </script>
+  </body>
+</html>

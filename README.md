@@ -32,7 +32,12 @@
 </p>
 
 <p align="center">
+  <a href="https://kioku.krmanik.workers.dev"><img alt="Try in the browser (experimental)" src="https://img.shields.io/badge/Try-Web%20%C2%B7%20experimental-B45309?labelColor=333333&style=for-the-badge&logo=googlechrome&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="https://krmanik.github.io/kioku/"><b>User manual</b></a> ·
+  <a href="web/README.md">Web version</a> ·
   <a href="https://github.com/krmanik/kioku/releases/latest">Releases</a> ·
   <a href="https://github.com/krmanik/kioku/issues">Issues</a>
 </p>
@@ -93,6 +98,7 @@ Anki itself is in [Anki's manual](https://docs.ankiweb.net/).
 | [`ios/`](ios/) | iOS variant: Xcode build, WKWebView layer ([README](ios/README.md)) |
 | [`android/`](android/) | native Android variant: CMake/Gradle build, Android web view, Qt patches |
 | [`termux/`](termux/) | Termux variant: Android app, desktop shell, runtime build ([README](termux/README.md)) |
+| [`web/`](web/) | web variant: Anki in a browser tab, compiled to WebAssembly; Cloudflare hosting ([README](web/README.md)) |
 | [`shared/`](shared/) | shared by the native variants: Python layer, versions, icon, build tools |
 | [`docs/`](docs/) | [user manual](docs/manual/), [fixes log](docs/fixes.md), [test results](docs/testing.md), [privacy](docs/privacy.md) |
 

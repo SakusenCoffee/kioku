@@ -38,8 +38,9 @@ then shows the developer what TestFlight collects for every beta app: the
 name and email address you were invited with (if invited by email), your
 device model and iOS version, installs and sessions, crash reports, and any
 feedback or screenshots you send through TestFlight. Kioku itself still sends
-nothing. When you email for the TestFlight link, your email address is used
-only to send it.
+nothing. The TestFlight signup form (Google Forms) collects your Google
+account's email address only to allow one signup per account, because
+TestFlight has a limited number of testers.
 
 ## Children
 

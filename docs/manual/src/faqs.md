@@ -24,7 +24,7 @@ sync uses your own AnkiWeb account.
 **Where's Kioku in the App Store or Play Store?**
 It isn't, and there's no plan for the App Store. Install it from
 [GitHub Releases](install/intro.md); on iPhone and iPad, a
-[TestFlight](install/ios.md#testflight-on-request) build is available on request.
+[TestFlight](install/ios.md#testflight) build is available: [sign up](https://forms.gle/fw4YMTdGbgD8nqPe8).
 
 **Which Anki version is inside?**
 Help › About shows it. Kioku 0.2.2 has Anki 26.08.1.

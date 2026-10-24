@@ -6,17 +6,20 @@ Needs iOS or iPadOS 17 or newer.
 
 Two ways to get Kioku:
 
-- **TestFlight**, Apple's beta app: no signing, no 7-day refresh. The link is
-  given on request.
+- **TestFlight**, Apple's beta app: no signing, no 7-day refresh. Sign up
+  with a [short form](https://forms.gle/fw4YMTdGbgD8nqPe8) to get the link.
 - **Sideloading** the unsigned `.ipa` from GitHub Releases: you sign it with
   your own Apple ID while installing.
 
 Kioku won't be in the App Store; TestFlight is the only Apple-signed way.
 
-## TestFlight (on request)
+## TestFlight
 
-1. Email [krmanik@outlook.com](mailto:krmanik@outlook.com?subject=Kioku%20TestFlight)
-   for the TestFlight link.
+TestFlight has a limited number of testers, so the link comes from a signup
+form that allows one signup per Google account.
+
+1. Fill in the [signup form](https://forms.gle/fw4YMTdGbgD8nqPe8); the TestFlight link is shown
+   after you submit.
 2. Install [TestFlight](https://apps.apple.com/app/testflight/id899247664)
    from the App Store.
 3. Open the link on your iPhone or iPad and tap **Accept**, then **Install**.

@@ -44,7 +44,7 @@ apps (AltStore, Sideloadly, …).
 
 ## TestFlight
 
-Kioku is distributed through TestFlight (link on request), not the App Store.
+Kioku is distributed through TestFlight ([signup form](https://forms.gle/fw4YMTdGbgD8nqPe8)), not the App Store.
 
 ```sh
 KIOKU_TEAM=<team id> tools/testflight.sh                # build, archive, upload

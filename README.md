@@ -25,10 +25,10 @@
 <h3 align="center">Download</h3>
 
 <p align="center">
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-iOS-0.2.2-unsigned.ipa"><img alt="Download iOS" src="https://img.shields.io/badge/Download-iOS-000000?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download iOS" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20iOS&color=000000&labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
   <a href="https://forms.gle/fw4YMTdGbgD8nqPe8"><img alt="iOS TestFlight beta" src="https://img.shields.io/badge/TestFlight-join%20beta-0D96F6?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a><br>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Android-0.2.2-arm64.apk"><img alt="Download Android (native)" src="https://img.shields.io/badge/Download-Android-1E7F3C?labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
-  <a href="https://github.com/krmanik/kioku/releases/download/v0.2.2/Kioku-Termux-0.2.2-arm64.apk"><img alt="Download Android (Termux)" src="https://img.shields.io/badge/Download-Termux-2563EB?labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download Android (native)" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20Android&color=1E7F3C&labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
+  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download Android (Termux)" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20Termux&color=2563EB&labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a>
 </p>
 
 <p align="center">

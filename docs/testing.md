@@ -648,3 +648,21 @@ GitHub issue #1 (after the accessibility fix: Termux has no Advanced tab, User i
 | Termux: `tools/test_on_device.sh` (test_remote, new resolution tests) | | ✅ 26 passed |
 
 Not covered: AnkiDroid itself in the Termux variant (not on the emulator); a physical phone (the emulator draws with SwiftShader, so Qt's frames are slower than on a phone and the delays were tuned there); iOS (the scale change is shared code; the keyboard changes are Android only).
+
+## Crash on a tap, TestFlight 0.2.2 (126) (2026-10-25)
+
+Crash report from a tester (iPhone18,3, iOS 27.0.1): `EXC_BAD_ACCESS` at
+`0x8` during a touch, in Qt's text-selection gesture recognizer, with a null
+focus object. Fix: [fixes.md](fixes.md#runtime-platform)
+(`qios-null-focus-object.patch`). iPhone 15 Pro Max, iOS 27.0.1, dev builds.
+
+| Test | Result |
+| --- | --- |
+| Report symbolicated with the archive's binary (same UUID `6F3F22D9…`) | `querySelection()` + 68 ← `-[QIOSSelectionRecognizer acceptTouchesBegan:]` ← `-[QIOSLoupeRecognizer touchesBegan:withEvent:]`; the fault is `ldr x8, [x0, #0x8]` in `QCoreApplication::sendEvent` with `x0` = `focusObject()` = null |
+| Looking for the trigger: a focused line edit's dialog closed with `deleteLater`, `sip.delete`, hide and delete together, `setWindowFlags`, `windowHandle().destroy()`; `aqt.utils.getText`; Add › Deck (Study Deck) picked; Browse search then Back; Preferences spin box then close; the editor's web view made first responder | ✅ every time the recognizers went away with the focus (checked through UIKit's `gestureRecognizers`, sampled 0-1000 ms after the change) |
+| A minute of real taps (Browse search, editor fields, keyboard swiped down, Study Deck filter, text boxes then the deck list) with a monitor for "focus object null while Qt's recognizers are attached" | ✅ no such state, no crash; two changes to a null focus, both signalled |
+| Forced: a text field focused, then `QGuiApplicationPrivate::focus_window` set to null in memory (what `QWindowPrivate::destroy()` does), one tap, unpatched build | ❌ crash, `Kioku-2026-10-25-121855.ips`: the reported stack (`querySelection()` ← `-[QIOSCursorRecognizer acceptTouchesBegan:]`) |
+| Same with the patched `libqios.a` (the app's `querySelection` now starts with `cbz` on `focusObject()`) | ✅ several taps on the deck list, the dialog's text box and buttons; app kept running, no new crash report |
+
+Not found: which path in the tester's app left the focus null without the
+signal. The patch covers every such path for this crash.

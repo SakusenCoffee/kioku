@@ -4,8 +4,11 @@ import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
@@ -16,6 +19,9 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.inputmethod.InputMethodManager;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import com.termux.x11.LoriePreferences;
 import com.termux.x11.MainActivity;
@@ -110,7 +116,21 @@ final class AndroidBridge {
                         writeBatteryState(ctx);
                         break;
                     default:
-                        Log.w(TAG, "Unknown request " + request);
+                        if (cmd.equals("all-files/state")) {
+                            writeAllFilesAccess(ctx);
+                        } else if (cmd.startsWith("apps/")) {
+                            writeAppVersions(ctx, cmd.substring("apps/".length()).split(","));
+                        } else if (cmd.startsWith("app-details/")) {
+                            start(ctx, new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", cmd.substring("app-details/".length()), null)));
+                        } else if (cmd.startsWith("launch/")) {
+                            Intent launch = ctx.getPackageManager()
+                                    .getLaunchIntentForPackage(cmd.substring("launch/".length()));
+                            if (launch != null)
+                                start(ctx, launch);
+                        } else {
+                            Log.w(TAG, "Unknown request " + request);
+                        }
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Failed to handle " + request, e);
@@ -209,6 +229,42 @@ final class AndroidBridge {
                     "battery-unrestricted", free ? "yes" : "no");
         } catch (IOException e) {
             Log.w(TAG, "Cannot save the battery state", e);
+        }
+    }
+
+    /**
+     * ~/.config/kioku/apps.json: {package: versionName} of those installed
+     * (Preferences > Advanced > AnkiDroid's folder, kioku_platform.py). Only
+     * packages listed in the manifest's queries are visible.
+     */
+    private static void writeAppVersions(Context ctx, String[] packages) {
+        JSONObject found = new JSONObject();
+        for (String p : packages) {
+            try {
+                PackageInfo info = ctx.getPackageManager().getPackageInfo(p, 0);
+                found.put(p, info.versionName != null ? info.versionName : "");
+            } catch (PackageManager.NameNotFoundException | JSONException e) {
+                // not installed
+            }
+        }
+        try {
+            PickFileActivity.writeAtomically(new File(new Prefix(ctx).home, ".config/kioku"),
+                    "apps.json", found.toString());
+        } catch (IOException e) {
+            Log.w(TAG, "Cannot save the app versions", e);
+        }
+    }
+
+    /** ~/.config/kioku/all-files: "yes" or "no", whether All files access is allowed. */
+    private static void writeAllFilesAccess(Context ctx) {
+        boolean allowed = Build.VERSION.SDK_INT >= 30 ? Environment.isExternalStorageManager()
+                : ctx.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        == PackageManager.PERMISSION_GRANTED;
+        try {
+            PickFileActivity.writeAtomically(new File(new Prefix(ctx).home, ".config/kioku"),
+                    "all-files", allowed ? "yes" : "no");
+        } catch (IOException e) {
+            Log.w(TAG, "Cannot save the All files access state", e);
         }
     }
 

@@ -13,6 +13,10 @@ Anki's prefs21.db next to the other global preferences.
 On Android a foreground service keeps the process alive while the server runs;
 iOS cannot serve in the background and reclaims the listening socket there,
 so the server is started again when the app comes back.
+
+Anki builds without that patch (the Termux variant runs Termux's own Anki)
+have only upstream's blocking syncserver(): the server then runs in a child
+process (_ServerProcess).
 """
 
 from __future__ import annotations
@@ -22,9 +26,12 @@ import logging
 import os
 import secrets
 import shutil
+import signal
 import socket
+import subprocess
 import sys
 import threading
+import time
 import urllib.request
 from dataclasses import asdict, dataclass
 
@@ -217,7 +224,11 @@ def start(settings: Settings) -> Status:
             os.environ["SYNC_USER1"] = f"{settings.username}:{settings.password}"
             os.environ.setdefault("RUST_LOG", "anki=info")
             try:
-                port = _rsbridge().syncserver_start(host, settings.port, base_folder())
+                bridge = _rsbridge()
+                if hasattr(bridge, "syncserver_start"):
+                    port = bridge.syncserver_start(host, settings.port, base_folder())
+                else:
+                    port = _process.start(host, settings.port, base_folder())
             except Exception as err:
                 raise ServerError(_explain(str(err), settings)) from err
             finally:
@@ -238,12 +249,88 @@ def stop() -> None:
     global _status, _running_settings
     with _lock:
         try:
-            _rsbridge().syncserver_stop()
+            bridge = _rsbridge()
+            if hasattr(bridge, "syncserver_stop"):
+                bridge.syncserver_stop()
+            else:
+                _process.stop()
         except Exception:
             logger.exception("stopping the sync server")
         _status = Status()
         _running_settings = None
     _notify_platform()
+
+
+class _ServerProcess:
+    """Upstream's server (`anki --syncserver`) in a child process. It takes
+    its settings from the environment (SYNC_USER1 is set by start()) and
+    ends with this process."""
+
+    # how long the child may take to listen, and to stop
+    START_SECONDS = 15.0
+    STOP_SECONDS = 5.0
+    CODE = "from anki._rsbridge import syncserver; syncserver()"
+
+    def __init__(self) -> None:
+        self._child: subprocess.Popen | None = None
+
+    def start(self, host: str, port: int, base: str) -> int:
+        self.stop()
+        env = dict(os.environ, SYNC_HOST=host, SYNC_PORT=str(port), SYNC_BASE=base)
+        log_path = os.path.join(base, "server.log")
+        with open(log_path, "wb") as log:
+            self._child = subprocess.Popen(
+                [sys.executable, "-c", self.CODE], env=env, stdin=subprocess.DEVNULL,
+                stdout=log, stderr=subprocess.STDOUT, preexec_fn=_end_with_parent,
+            )
+        probe = "127.0.0.1" if host == "0.0.0.0" else host
+        deadline = time.monotonic() + self.START_SECONDS
+        while time.monotonic() < deadline:
+            if self._child.poll() is not None:
+                self._child = None
+                raise ServerError(_tail(log_path) or "The sync server stopped right away.")
+            # the server's answer: something else may listen on the port
+            try:
+                with urllib.request.urlopen(f"http://{probe}:{port}/health", timeout=0.5):
+                    return port
+            except OSError:
+                time.sleep(0.1)
+        self.stop()
+        raise ServerError("The sync server didn't start listening.")
+
+    def stop(self) -> None:
+        child, self._child = self._child, None
+        if child is None or child.poll() is not None:
+            return
+        child.terminate()
+        try:
+            child.wait(self.STOP_SECONDS)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait()
+
+
+def _end_with_parent() -> None:
+    # Linux/Android: the child gets SIGTERM when Anki's process ends, so the
+    # port isn't left taken
+    try:
+        import ctypes
+
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL(None).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        pass
+
+
+def _tail(path: str, lines: int = 5) -> str:
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return "".join(fh.readlines()[-lines:]).strip()
+    except OSError:
+        return ""
+
+
+_process = _ServerProcess()
 
 
 def _explain(error: str, settings: Settings) -> str:

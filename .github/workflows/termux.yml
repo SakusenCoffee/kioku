@@ -21,7 +21,7 @@ on:
     tags: ["v*"]
     # build only (no release) when the termux code or the Anki version changes on main
     branches: [main]
-    paths: ["termux/**", "shared/versions.env", ".github/workflows/termux.yml"]
+    paths: ["termux/**", "shared/versions.env", "shared/python/kioku/**", ".github/workflows/termux.yml"]
   workflow_dispatch:
     inputs:
       tag:

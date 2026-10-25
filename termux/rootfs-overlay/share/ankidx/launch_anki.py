@@ -158,6 +158,14 @@ for scheme in ("http", "https"):
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ankidesk_mobile  # noqa: E402
+# Preferences > Advanced, shared with the native apps (shared/python/kioku in
+# the repository, with kioku_platform.py from here): the phone as a sync
+# server, AnkiDroid's media folder
+from kioku import advanced, ankidroid, syncserver  # noqa: E402
+
+advanced.install()
+ankidroid.install()
+syncserver.install()
 
 if REMOTE:
     # window sizes, splitters and table columns: the remote screen's own, so

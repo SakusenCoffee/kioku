@@ -36,11 +36,18 @@ tools/fetch_python_deps.sh "$PYVER" build/python-deps
 
 tools/fetch_novnc.sh build/novnc-overlay
 
+# Preferences > Advanced, shared with the native apps (launch_anki.py)
+rm -rf build/kioku-overlay
+mkdir -p build/kioku-overlay/share/ankidx/kioku
+for m in advanced ankidroid background switchsync syncserver; do
+	cp ../shared/python/kioku/$m.py build/kioku-overlay/share/ankidx/kioku/
+done
+
 # The app installer treats these as already installed.
 mkdir -p build/base-overlay/var/lib/ankidesk
 cp build/debs-closure.tsv build/base-overlay/var/lib/ankidesk/base-packages.tsv
 
 echo "== bootstrap"
 python3 -I tools/build_rootfs.py --src build/rootfs-repo/usr --owners build/rootfs-repo/file-owners.tsv \
-	--extra rootfs-overlay --extra build/python-deps --extra build/pyqt6-sip-overlay --extra build/base-overlay --extra build/novnc-overlay \
+	--extra rootfs-overlay --extra build/python-deps --extra build/pyqt6-sip-overlay --extra build/base-overlay --extra build/novnc-overlay --extra build/kioku-overlay \
 	--package "$APP_ID" --rootfs-dir "$ROOTFS_DIR" --stage build/rootfs-stage --out app/src/main/assets/bootstrap-aarch64.zip

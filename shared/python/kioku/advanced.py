@@ -195,7 +195,9 @@ class SyncServerGroup:
         how = QLabel((HOW_TO_ANKIDROID if sys.platform == "android" else "") + HOW_TO)
         how.setWordWrap(True)
         layout.addWidget(how)
-        if note := PLATFORM_NOTE.get(sys.platform):
+        import kioku_platform as platform
+
+        if note := getattr(platform, "SERVER_NOTE", PLATFORM_NOTE.get(sys.platform)):
             note_label = QLabel(note)
             note_label.setWordWrap(True)
             layout.addWidget(note_label)

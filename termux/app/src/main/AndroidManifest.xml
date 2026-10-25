@@ -20,6 +20,18 @@
     <!-- Termux:X11 extras this app does not use. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:node="remove" />
 
+    <!-- AnkiDroid's version and launching it (Preferences › Advanced in Anki,
+         kioku/ankidroid.py PACKAGES) -->
+    <queries>
+        <package android:name="com.ichi2.anki" />
+        <package android:name="com.ichi2.anki.debug" />
+        <package android:name="com.ichi2.anki.A" />
+        <package android:name="com.ichi2.anki.B" />
+        <package android:name="com.ichi2.anki.C" />
+        <package android:name="com.ichi2.anki.D" />
+        <package android:name="com.ichi2.anki.E" />
+    </queries>
+
     <application
         android:name=".AnkiApp"
         android:label="@string/app_name"

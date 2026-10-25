@@ -16,7 +16,9 @@ libraries, a file manager, an unrestricted file system).
 | --- | --- | --- |
 | Qt download hangs forever | aqtinstall's default mirror (ftp.jaist.ac.jp) stalls | `QT_MIRROR` in `shared/versions.env` (Berkeley mirror) |
 | iOS `qmake` fails with exit 127 | Qt's iOS `qmake` is a wrapper pointing at the build machine's path (`/Users/qt/work/install`) | `ios/tools/fetch_deps.sh` rewrites the wrappers and `target_qt.conf` to the downloaded macOS host Qt, on every run (the path breaks again if `deps/` moves) |
-| No iOS Simulator builds on Apple silicon | Qt's prebuilt iOS libraries have only `arm64` (device) and `x86_64` (simulator) slices | Test on a device; `tools/run_device.sh` |
+| No iOS Simulator builds on Apple silicon | Qt's prebuilt iOS libraries have only `arm64` (device) and `x86_64` (simulator) slices | `ios/tools/build_qt_sim.sh` builds qtbase + qtsvg from source for arm64-simulator into `deps/qt/<ver>/iossim`; `ios/tools/run_sim.sh` builds and runs the app there |
+| Qt 6.11 source build fails: `implicitly declaring library function '__yield'` | `qyieldcpu.h` calls `__yield` without `<arm_acle.h>`; newer Xcode clang makes that an error (the prebuilt Qt used an older Xcode) | `build_qt_sim.sh` passes `-Wno-error=implicit-function-declaration` |
+| Simulator: `OSError: No username set in the environment` at `import aqt` | The simulator sets no `USER` and has no passwd entry; `getpass.getuser()` fails | `run_sim.sh` launches with `SIMCTL_CHILD_USER=mobile` |
 | PyQt6 fails to compile: DTLS, Vulkan, `QProcess` | Qt for iOS lacks them; PyQt's config tests can't run when cross-compiling | `--disabled-feature PyQt_DTLS/Process/Vulkan/XCB/Wayland` in `ios/tools/gen_pyqt.sh` |
 | sip: `'QProcessEnvironment' is undefined` | PyQt 6.11 declares its comparison operators outside the `PyQt_Process` guard | `ios/patches/pyqt6-qprocess-guard.patch` |
 | `no member named 'EnterEditFocus'` | dropped the `QT_KEYPAD_NAVIGATION` define from the generated `.pro` | keep every define from the `.pro` (`tools/gen_pyqt_cmake.py`) |

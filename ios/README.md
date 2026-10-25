@@ -68,5 +68,18 @@ tools/sweep.sh                                 # open every window, report overf
 tools/smoke.sh                                 # crash sweep: windows, study, switch profile, Back
 ```
 
-The iOS Simulator is not supported: Qt's prebuilt iOS libraries have no
-arm64 simulator slice.
+## Developing on the Simulator
+
+```sh
+tools/run_sim.sh                         # build, install, launch, show the log
+KIOKU_SIM="iPhone 16 Pro" tools/run_sim.sh   # pick a simulator (name or UDID)
+```
+
+Qt's prebuilt iOS libraries have no arm64 simulator slice, so the first run
+builds Qt (qtbase + qtsvg) from source into `deps/qt/<ver>/iossim`
+(`tools/build_qt_sim.sh`, ~20 min); later runs reuse it. The app goes to
+`build/xcode-sim`, separate from the device build. The simulator sets no
+`USER`, so `run_sim.sh` launches with `USER=mobile` (Anki's `getpass.getuser()`
+needs it). `devcmd.sh`, `sweep.sh` and `smoke.sh` only talk to a device.
+Audio, TTS and WebKit media behave differently from a phone: check those on a
+device.

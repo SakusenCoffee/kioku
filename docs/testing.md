@@ -625,3 +625,26 @@ Emulator (Android 16 image), Switch Access turned on as the accessibility servic
 | Tools menu, Preferences | — | open; app answers dev commands throughout |
 
 Not covered: a password manager itself (none on the emulator); the reporter's phone.
+
+## Issue #1 follow-up and issue #4: interface size, keyboard flash, Termux Advanced, custom remote size (2026-10-25)
+
+GitHub issue #1 (after the accessibility fix: Termux has no Advanced tab, User interface size does nothing in either variant, remote desktop has only four sizes) and #4 (native Android: opening and closing the keyboard in the add and edit screens flashes black). Emulator (Android 17 arm64, `swiftshader_indirect`), cold-booted with `hw.keyboard = no` so Gboard shows a full keyboard; add-ons removed from the native profile. Keyboard runs: `screenrecord` while tapping a field and pressing Back twice, frames resampled to 60 fps, a frame counted black when a full-width band is under 25 of 255 grey.
+
+| Check | Before | After |
+| --- | --- | --- |
+| Native: User interface size 150%, restart | `QT_SCALE_FACTOR` 1.0, nothing changed | 1.5: title bar, menus and Preferences larger, page text 150% |
+| Native: Preferences at 150% | User Interface and Distractions rows drawn over each other | each tab page scrolls with a drag; range 50-200% |
+| Native: Add window, keyboard open/close | black strip above the keyboard 100-400 ms on every open | 0 of 26 opens (last three builds); Tags and buttons stay above the keyboard (they used to end up under it after about 0.5 s) |
+| Native: Browse, editor field near the bottom | black block where the editor was, every open | 2 of 8 opens show 50-100 ms of black inside the enlarged editor (Chromium drawing its new size), otherwise none |
+| Native: reviewer, type-in answer box | no black | no black (5 of 5); the main window keeps Chromium's own keyboard handling |
+| Native: window sweep (`tools/sweep.sh`, 12 windows) | | all open full screen; only Qt's hidden Preferences tab bar reported as wider than the screen (the swipe strip replaces it) |
+| Host tests (`shared/tests/run.sh`, new: `test_syncserver_process.py`) | | ✅ all passed, 3 new |
+| Termux: Preferences | 7 tabs | Advanced is the 8th; User interface size 50-300% |
+| Termux: User interface size 150%, Preferences closed, app force-stopped, started again | back to 200% (the setting was never saved) | 150%, `QT_SCALE_FACTOR` 1.5 |
+| Termux: sync server from the Advanced code (Termux's Anki has no `syncserver_start`) | — | child process listens on 18080, `/health` 200, a collection logs in and uploads, stop ends the child |
+| Termux: remote desktop at Custom 2388 × 1668 (`parse_resolution("2388 x 1668")`) | sizes outside the four were refused | Xvfb at 2388 × 1668, RandR modes added (2388x1668 first), Anki's screen 2388 × 1668; back on the phone afterwards |
+| Termux: Advanced › AnkiDroid's folder (stand-in `/sdcard/AnkiDroid` with a collection and `collection.media`) | — | All files access read from Android (`Environment.isExternalStorageManager`: ✗ before `appops … allow`, ✓ after; listing shared storage had said ✓ without it); "AnkiDroid isn't installed" (versions through `ankidesk:apps/…`); Find picks the folder; AnkiDroid's media: the profile opens with `/sdcard/AnkiDroid/collection.media`, its own collection |
+| Termux: User interface size on the remote screen | always 100% | 175% saved as `kioku_remote_uiScale`; the phone's 150% unchanged |
+| Termux: `tools/test_on_device.sh` (test_remote, new resolution tests) | | ✅ 26 passed |
+
+Not covered: AnkiDroid itself in the Termux variant (not on the emulator); a physical phone (the emulator draws with SwiftShader, so Qt's frames are slower than on a phone and the delays were tuned there); iOS (the scale change is shared code; the keyboard changes are Android only).

@@ -33,8 +33,9 @@ Where Kioku listens (choose it before turning it on):
 The password is made up when you first open the page; tap it for a new one. VNC
 uses at most 8 characters of a password, so it is 8 random letters and digits.
 
-Screen sizes: 1280 × 800, 1600 × 900, 1920 × 1080 (default) and 2560 × 1440. The
-web viewer scales the screen to the browser window.
+Screen sizes: 1280 × 800, 1600 × 900, 1920 × 1080 (default) and 2560 × 1440, or
+**Custom**: any width × height from 640 × 480 to 7680 × 4320, such as a tablet's
+2388 × 1668. The web viewer scales the screen to the browser window.
 
 With the XFCE desktop, **Settings › Display** can change the resolution, up to the
 size chosen here; the viewer follows. **Scale** there doesn't work on the remote
@@ -45,7 +46,10 @@ Window Scaling**, or choose a smaller screen size here.
 ## While it is on
 
 - Anki runs on the remote screen at 100% size, without the phone's touch changes
-  (on-screen keyboard, one-finger scrolling). Its windows have a taskbar, with an
+  (on-screen keyboard, one-finger scrolling). For bigger text and buttons, change
+  Anki's **Preferences › Appearance › User interface size** there (up to 300%) and
+  restart Anki from the taskbar: the remote screen keeps its own size, separate
+  from the phone's. Its windows have a taskbar, with an
   **Anki** button to open it again if you close it.
 - Tapping Anki on the phone shows the Remote page instead: Anki can be open in one
   place only.

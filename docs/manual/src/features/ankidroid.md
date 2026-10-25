@@ -1,6 +1,6 @@
 # AnkiDroid's media (Android)
 
-> **Applies to:** Android native
+> **Applies to:** Android native, Android Termux
 
 For **large media collections** on a phone with AnkiDroid: a Kioku profile can
 use AnkiDroid's `collection.media` folder instead of its own, so the media is
@@ -45,6 +45,9 @@ If AnkiDroid's folder can't be opened (no permission, folder moved), the
 profile opens with its own collection and Kioku says why.
 
 ## Syncing when you switch between Kioku and AnkiDroid
+
+> **Android native only.** In the Termux variant, sync the Kioku profile by
+> hand (or when Anki opens and closes) and AnkiDroid with its Sync button.
 
 Anki syncs automatically when a profile opens and closes, but phone apps are
 rarely closed. So a Kioku profile that syncs with the phone's server also

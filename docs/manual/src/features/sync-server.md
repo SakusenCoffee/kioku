@@ -1,9 +1,9 @@
 # Sync server on the phone
 
-> **Applies to:** iPhone/iPad, Android native
+> **Applies to:** iPhone/iPad, Android native, Android Termux
 
-The native iPhone and Android apps have an **Advanced** tab in Anki's
-Preferences, with options for experienced users. Everything there is off until
+Kioku adds an **Advanced** tab to Anki's Preferences, with options for
+experienced users. Everything there is off until
 you turn it on, and each option explains its risks first.
 
 ## Sync server on this phone

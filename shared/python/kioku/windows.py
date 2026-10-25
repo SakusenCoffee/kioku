@@ -378,6 +378,21 @@ def _above_keyboard(avail: QRect) -> QRect:
     return avail
 
 
+def keyboard_overlap(w: QWidget) -> int:
+    """How much of the window the on-screen keyboard covers. Qt on Android
+    puts it into the window's safe area only for a moment (its insets come
+    from the activity's adjustResize, then go back), so the Add window's
+    buttons and tags ended up under the keyboard, after being laid out
+    above it and back. (iOS keeps its own handling.)"""
+    if sys.platform != "android":
+        return 0
+    avail = _available()
+    free = _above_keyboard(avail)
+    if free == avail:
+        return 0
+    return max(0, w.geometry().bottom() - free.bottom())
+
+
 def _center(w: QWidget, size: QSize, avail: QRect) -> None:
     area = _above_keyboard(avail)
     y = area.y() + (area.height() - size.height()) // 2
@@ -398,9 +413,11 @@ class WindowManager(QObject):
             screen.availableGeometryChanged.connect(self._refit_all)
         im = QGuiApplication.inputMethod()
         if im is not None:
-            # keep cards with a text field (the AnkiWeb login) above it
-            im.keyboardRectangleChanged.connect(self._recenter_cards)
-            im.visibleChanged.connect(self._recenter_cards)
+            # keep cards with a text field (the AnkiWeb login) above it, and
+            # windows' contents (the Add window's buttons)
+            for changed in (im.keyboardRectangleChanged, im.visibleChanged):
+                changed.connect(self._recenter_cards)
+                changed.connect(self._relayout_windows)
 
     def eventFilter(self, obj: QObject | None, evt: QEvent | None) -> bool:
         if evt is None or not isinstance(obj, QWidget):
@@ -491,12 +508,17 @@ class WindowManager(QObject):
             safe.left() + own[0],
             safe.top() + own[1] + BAR_HEIGHT,
             safe.right() + own[2],
-            safe.bottom() + own[3],
+            max(safe.bottom(), keyboard_overlap(w)) + own[3],
         )
         current = w.contentsMargins()
         if (current.left(), current.top(), current.right(), current.bottom()) != margins:
             w.setContentsMargins(*margins)
         bar.place(safe.top())
+
+    def _relayout_windows(self) -> None:
+        for w in QApplication.topLevelWidgets():
+            if w.isVisible() and self._bar(w) is not None:
+                self._layout(w)
 
     def _add_border(self, w: QWidget) -> None:
         if self._border(w) is None:

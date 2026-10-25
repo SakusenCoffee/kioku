@@ -15,8 +15,9 @@ import weakref
 from typing import Any, Callable
 
 import _kioku_android
+from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QTimer
 from PyQt6.QtGui import QWindow
-from PyQt6.QtWidgets import QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QWidget
 
 from . import bridge
 
@@ -48,6 +49,86 @@ def delete_cookies(domain: str, name: str | None) -> None:
     bridge.call("cookies.delete", domain=domain, name=name or "")
 
 
+def _main_window() -> QWidget | None:
+    import aqt
+
+    return aqt.mw
+
+
+class _FollowHost(QObject):
+    """Keeps the Android view over its Qt widget, but moves or shrinks it
+    only once Qt has drawn what that uncovers. Qt draws nothing under the
+    view, and Android placed it at once while Qt's frame came later: when
+    the keyboard opened, the strip above it (the Add window's buttons)
+    flashed black, and when it closed, the Browse window's editor left a
+    black block where it had been. After the window's next paint,
+    SHRINK_DELAY_MS more give
+    the frame time to reach the screen; SHRINK_LATEST_MS is the longest
+    wait. Growing covers only what the view will draw: at once."""
+
+    SHRINK_DELAY_MS = 300
+    SHRINK_LATEST_MS = 1000
+
+    def __init__(self, host: QWidget, container: QWidget) -> None:
+        super().__init__(container)
+        self._host = host
+        self._container = container
+        self._window: QWidget | None = None
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._place)
+        container.setGeometry(host.rect())
+        # where the view is, in the window
+        self._shown = self._host_rect()
+        # the widget moves with its parents too (the Browse window's
+        # splitter moves the editor's pane)
+        self._chain: list[QWidget] = []
+        widget: QWidget | None = host
+        while widget is not None and not widget.isWindow():
+            self._chain.append(widget)
+            widget.installEventFilter(self)
+            widget = widget.parentWidget()
+
+    def _host_rect(self) -> QRect:
+        """The widget's place in its window."""
+        return QRect(self._host.mapTo(self._host.window(), QPoint(0, 0)), self._host.size())
+
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if event is None:
+            return False
+        kind = event.type()
+        if kind in (QEvent.Type.Resize, QEvent.Type.Move) and obj in self._chain:
+            target = self._host_rect()
+            if target.contains(self._shown):
+                self._place()
+            else:
+                # stay where it is in the window until Qt has drawn there
+                self._container.setGeometry(self._shown.translated(-target.topLeft()))
+                self._wait_for_paint()
+        elif obj is self._window and kind == QEvent.Type.Paint:
+            # the paint runs now; the frame reaches the screen after it
+            self._stop_watching()
+            self._timer.start(self.SHRINK_DELAY_MS)
+        return False
+
+    def _wait_for_paint(self) -> None:
+        if self._window is None:
+            self._window = self._host.window()
+            self._window.installEventFilter(self)
+            self._timer.start(self.SHRINK_LATEST_MS)
+
+    def _stop_watching(self) -> None:
+        if self._window is not None:
+            self._window.removeEventFilter(self)
+            self._window = None
+
+    def _place(self) -> None:
+        self._timer.stop()
+        self._stop_watching()
+        self._container.setGeometry(self._host.rect())
+        self._shown = self._host_rect()
+
+
 class WebView:
     """Callbacks (on_*) are overridden by kioku.webengine."""
 
@@ -77,8 +158,8 @@ class WebView:
 
     @staticmethod
     def prepare_host(widget: QWidget) -> None:
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # the view follows the widget's size itself (_FollowHost)
+        pass
 
     def __init__(self) -> None:
         self.id = next(_ids)
@@ -164,10 +245,11 @@ class WebView:
             return
         window = QWindow.fromWinId(handle)
         container = QWidget.createWindowContainer(window, widget)
-        layout = widget.layout()
-        if layout is not None:
-            layout.addWidget(container)
+        _FollowHost(widget, container)
         container.show()
+        # kioku.windows keeps dialogs above the on-screen keyboard; the main
+        # window's pages keep clear of it themselves
+        bridge.call("webview.keyboardInsets", id=self.id, on=widget.window() is _main_window())
         self._container = container
         self._host = widget
 

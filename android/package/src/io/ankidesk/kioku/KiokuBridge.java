@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Insets;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
@@ -23,6 +24,7 @@ import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Toast;
 import android.webkit.ConsoleMessage;
@@ -290,6 +292,12 @@ public class KiokuBridge {
             case "webview.zoom":
                 page(a).view.getSettings().setTextZoom((int) Math.round(a.getDouble("factor") * 100));
                 break;
+            case "webview.keyboardInsets": {
+                Page p = page(a);
+                p.keyboardInsets = a.getBoolean("on");
+                p.view.requestApplyInsets();
+                break;
+            }
             case "webview.reload":
                 page(a).generation++;
                 page(a).view.reload();
@@ -735,6 +743,8 @@ public class KiokuBridge {
         private final List<String> mainEnd = new ArrayList<>();
         private final Map<Integer, JsResult> confirms = new HashMap<>();
         private int nextConfirm = 1;
+        /** Whether the WebView sees the on-screen keyboard's insets. */
+        volatile boolean keyboardInsets = true;
         /** URLs Python allowed in acceptNavigationRequest(), loaded once without asking again. */
         private final List<String> approved = Collections.synchronizedList(new ArrayList<>());
 
@@ -753,6 +763,18 @@ public class KiokuBridge {
             view.addJavascriptInterface(new JsInterface(), "kiokuAndroid");
             view.setWebViewClient(new Client());
             view.setWebChromeClient(new Chrome());
+            // Without keyboardInsets (webview.keyboardInsets: views in windows
+            // that Kioku keeps above the keyboard) the WebView doesn't see the
+            // on-screen keyboard. It took the keyboard's inset itself: it
+            // stopped drawing the part the keyboard was about to cover, which
+            // showed black until the keyboard and the window caught up.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                view.setOnApplyWindowInsetsListener((v, insets) -> v.onApplyWindowInsets(
+                        keyboardInsets ? insets : new WindowInsets.Builder(insets)
+                                .setInsets(WindowInsets.Type.ime(), Insets.NONE)
+                                .setVisible(WindowInsets.Type.ime(), false)
+                                .build()));
+            }
         }
 
         void setScripts(JSONArray scripts) throws JSONException {

@@ -15,7 +15,7 @@ import sys
 from typing import Any
 
 from PyQt6 import sip
-from PyQt6.QtCore import QEvent, QMargins, QObject, QRect, QRectF, QSize, Qt, QTimer
+from PyQt6.QtCore import QEvent, QMargins, QObject, QRect, QRectF, QSignalBlocker, QSize, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
     QApplication,
@@ -274,6 +274,7 @@ def _fit_tabs(tabs: QTabWidget, narrow: int) -> None:
         ),
         None,
     )
+    _scroll_pages(tabs)
     fits = tabs.tabBar().sizeHint().width() <= narrow - 2 * CARD_MARGIN
     if strip is None:
         box = parent.layout()
@@ -284,6 +285,36 @@ def _fit_tabs(tabs: QTabWidget, narrow: int) -> None:
     tabs.tabBar().setVisible(fits)
     strip.setVisible(not fits)
     strip.update_tabs()
+
+
+SCROLL_PAGE = "kiokuScrollPage"
+
+
+def _scroll_pages(tabs: QTabWidget) -> None:
+    """Tab pages are laid out for a desktop's height: on a phone in
+    landscape, or with a larger user interface size, Qt squeezed their
+    rows on top of each other. Each page scrolls instead, with a drag (also
+    sideways, if a page can't get as narrow as the screen)."""
+    current = tabs.currentIndex()
+    blocker = QSignalBlocker(tabs)
+    for i in range(tabs.count()):
+        page = tabs.widget(i)
+        if isinstance(page, QAbstractScrollArea) or page.objectName() == SCROLL_PAGE:
+            continue
+        scroll = QScrollArea()
+        scroll.setObjectName(SCROLL_PAGE)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        for policy in (scroll.setHorizontalScrollBarPolicy, scroll.setVerticalScrollBarPolicy):
+            policy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        icon, text, visible = tabs.tabIcon(i), tabs.tabText(i), tabs.isTabVisible(i)
+        tabs.removeTab(i)
+        scroll.setWidget(page)
+        tabs.insertTab(i, scroll, icon, text)
+        tabs.setTabVisible(i, visible)
+        QScroller.grabGesture(scroll.viewport(), QScroller.ScrollerGestureType.LeftMouseButtonGesture)
+    tabs.setCurrentIndex(current)
+    del blocker
 
 
 def _is_small_dialog(w: QWidget, avail: QRect) -> bool:

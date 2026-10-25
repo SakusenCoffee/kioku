@@ -3,7 +3,7 @@
 Anki reads its UI scale and video driver from the profile
 metadata, overriding any environment variable, so patch the ProfileManager
 accessors before Anki starts. The UI scale only changes the default; a value
-set later in Preferences still wins.
+set later in Preferences still wins (the remote screen has its own).
 """
 
 import os
@@ -65,12 +65,20 @@ from aqt.profiles import ProfileManager, VideoDriver  # noqa: E402
 DEFAULT_SCALE = float(os.environ.get("ANKIDX_SCALE", "2.0"))
 # on the remote desktop's screen (ankidesk_remote.py): a computer's monitor
 REMOTE = os.environ.get("ANKIDX_REMOTE") == "1"
+# Preferences > Appearance > User interface size: one for the phone, one for
+# the remote screen, which is a monitor
+SCALE_KEY = "kioku_remote_uiScale" if REMOTE else "uiScale"
+# in percent (Anki's own: 100 to 200)
+SCALE_MIN, SCALE_MAX = 50, 300
 
 
 def ui_scale(self: ProfileManager) -> float:
-    if REMOTE:
-        return DEFAULT_SCALE
-    return max(self.meta.get("uiScale", DEFAULT_SCALE), 1)
+    scale = self.meta.get(SCALE_KEY, DEFAULT_SCALE)
+    return min(max(scale, SCALE_MIN / 100), SCALE_MAX / 100)
+
+
+def set_ui_scale(self: ProfileManager, scale: float) -> None:
+    self.meta[SCALE_KEY] = scale
 
 
 def video_driver(self: ProfileManager) -> VideoDriver:
@@ -97,10 +105,12 @@ def setup_meta(self: ProfileManager):  # type: ignore[no-untyped-def]
 
 
 ProfileManager.uiScale = ui_scale
+ProfileManager.setUiScale = set_ui_scale
 ProfileManager.video_driver = video_driver
 ProfileManager.setupMeta = setup_meta
 
 import aqt  # noqa: E402
+import aqt.preferences  # noqa: E402
 import aqt.update  # noqa: E402
 import aqt.utils  # noqa: E402
 from aqt import gui_hooks  # noqa: E402
@@ -112,6 +122,26 @@ from aqt.qt import QDesktopServices, QObject, QUrl, pyqtSlot  # noqa: E402
 KIOKU_RELEASES = "https://github.com/krmanik/kioku/releases/latest"
 aqt.appWebsiteDownloadSection = KIOKU_RELEASES
 aqt.update._download_github_update_and_install = lambda _release: aqt.utils.openLink(KIOKU_RELEASES)
+
+
+_setup_global = aqt.preferences.Preferences.setup_global
+_update_global = aqt.preferences.Preferences.update_global
+
+
+def setup_global(self) -> None:  # type: ignore[no-untyped-def]
+    self.form.uiScale.setRange(SCALE_MIN, SCALE_MAX)
+    _setup_global(self)
+
+
+def update_global(self) -> None:  # type: ignore[no-untyped-def]
+    _update_global(self)
+    # Anki saves its global settings only when the profile closes; Android
+    # stops the app without that when it's swiped away, which lost them
+    self.mw.pm.save()
+
+
+aqt.preferences.Preferences.setup_global = setup_global
+aqt.preferences.Preferences.update_global = update_global
 
 
 class UrlOpener(QObject):

@@ -58,6 +58,7 @@ def apply() -> None:
     _patch_app()
     _patch_audio()
     _patch_profile_saving()
+    _patch_ui_scale()
     _patch_bar_heights()
     _patch_review_menu()
     _patch_full_screen()
@@ -204,6 +205,50 @@ def _patch_profile_saving() -> None:
         self.applicationStateChanged.connect(on_state)
 
     aqt.AnkiApp.__init__ = init
+
+
+# Preferences › Appearance › User interface size, in percent: phones also
+# allow smaller than Anki's 100%
+UI_SCALE_MIN, UI_SCALE_MAX = 50, 200
+
+
+def _patch_ui_scale() -> None:
+    """Anki sets QT_SCALE_FACTOR from the user interface size only after
+    creating the QApplication, when Qt no longer reads it, so the setting
+    did nothing. Set it as soon as the global settings are loaded, before
+    the QApplication. The web views draw their pages themselves: they get
+    the size as their zoom (kioku.webengine)."""
+    import os
+
+    from aqt.preferences import Preferences
+    from aqt.profiles import ProfileManager
+
+    from . import webengine
+
+    def ui_scale(self) -> float:  # type: ignore[no-untyped-def]
+        scale = self.meta.get("uiScale", 1.0)
+        return min(max(scale, UI_SCALE_MIN / 100), UI_SCALE_MAX / 100)
+
+    ProfileManager.uiScale = ui_scale
+
+    setup_meta = ProfileManager.setupMeta
+
+    def setup_meta_and_scale(self):  # type: ignore[no-untyped-def]
+        result = setup_meta(self)
+        scale = self.uiScale()
+        os.environ["QT_SCALE_FACTOR"] = str(scale)
+        webengine.UI_SCALE = scale
+        return result
+
+    ProfileManager.setupMeta = setup_meta_and_scale
+
+    setup_global = Preferences.setup_global
+
+    def setup_global_range(self):  # type: ignore[no-untyped-def]
+        self.form.uiScale.setRange(UI_SCALE_MIN, UI_SCALE_MAX)
+        setup_global(self)
+
+    Preferences.setup_global = setup_global_range
 
 
 def _save_profile(pm) -> None:  # type: ignore[no-untyped-def]

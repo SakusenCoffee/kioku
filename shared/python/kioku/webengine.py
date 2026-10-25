@@ -34,6 +34,11 @@ import kioku_platform as platform
 from . import webscripts
 
 logger = logging.getLogger("kioku.webengine")
+
+# Preferences › User interface size (kioku.patches): Qt scales the widgets,
+# the pages are zoomed by it on top of their own zoom factor
+UI_SCALE = 1.0
+
 _reported: set[str] = set()
 
 
@@ -515,6 +520,8 @@ class QWebEnginePage(QObject, _Lenient):
         self._web.on_alert = self._on_alert  # type: ignore[method-assign]
         self._web.on_confirm = self._on_confirm  # type: ignore[method-assign]
         self.destroyed.connect(self._web.close)
+        if UI_SCALE != 1.0:
+            self._web.set_zoom(UI_SCALE)
 
     # Configuration ---------------------------------------------------------
 
@@ -544,7 +551,7 @@ class QWebEnginePage(QObject, _Lenient):
 
     def setZoomFactor(self, factor: float) -> None:
         self._zoom = factor
-        self._web.set_zoom(factor)
+        self._web.set_zoom(factor * UI_SCALE)
 
     def zoomFactor(self) -> float:
         return self._zoom

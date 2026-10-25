@@ -121,6 +121,11 @@ QFrame#field {{ background: {theme.SURFACE}; border: 1px solid {theme.SURFACE_BO
 QLineEdit#search {{
     border: none; padding: {dp(10)}px 0; font-size: {dp(16)}px; selection-background-color: {theme.ACCENT};
 }}
+QLineEdit#answer {{
+    background: {theme.SURFACE}; border: 1px solid {theme.SURFACE_BORDER}; border-radius: {dp(12)}px;
+    padding: {dp(10)}px {dp(12)}px; font-size: {dp(16)}px; selection-background-color: {theme.ACCENT};
+}}
+QLineEdit#answer:focus {{ border-color: {theme.ACCENT}; }}
 QFrame#card {{ background: {theme.SURFACE}; border: 1px solid {theme.SURFACE_BORDER}; border-radius: {dp(20)}px; }}
 QFrame#sheet {{ background: {theme.SURFACE_RAISED}; border: 1px solid {theme.SURFACE_BORDER}; border-radius: {dp(26)}px; }}
 QFrame#nav {{ background: {theme.BACKGROUND}; border: 1px solid {theme.SURFACE_BORDER}; border-radius: {dp(30)}px; }}
@@ -380,6 +385,12 @@ class Sheet(QWidget):
         texts.addWidget(self.text)
         head.addLayout(texts, 1)
         box.addLayout(head)
+        # for ask(field=...): one line of text, the answer
+        self.field = QLineEdit()
+        self.field.setObjectName("answer")
+        self.field.returnPressed.connect(self._accept)
+        self.field.hide()
+        box.addWidget(self.field)
         box.addSpacing(dp(8))
         buttons = QHBoxLayout()
         buttons.setSpacing(dp(10))
@@ -390,15 +401,18 @@ class Sheet(QWidget):
         buttons.addWidget(self.cancel, 1)
         buttons.addWidget(self.ok, 1)
         box.addLayout(buttons)
-        outer = QVBoxLayout(self)
+        outer = self.outer = QVBoxLayout(self)
         outer.setContentsMargins(dp(12), dp(12), dp(12), dp(12))
         outer.addStretch(1)
         outer.addWidget(self.panel, 0, Qt.AlignmentFlag.AlignHCenter)
+        outer.addStretch(0)
         no_focus(self)
         self.hide()
 
     def ask(self, icon: QPixmap, title: str, text: str, ok: str, on_ok=None, kind: str = "primary",
-            cancel: str = "Cancel", on_cancel=None) -> None:
+            cancel: str = "Cancel", on_cancel=None, field: str | None = None) -> None:
+        """With `field` (its text), the sheet asks for a line of text: read
+        it from self.field in on_ok."""
         self.icon.setPixmap(icon)
         self.title.setText(title)
         self.text.setText(text)
@@ -412,11 +426,21 @@ class Sheet(QWidget):
         self.on_ok, self.on_cancel = on_ok, on_cancel
         self.panel.setMinimumWidth(min(dp(520), self.parentWidget().width() - dp(24)))
         self.setGeometry(self.parentWidget().rect())
+        self.field.setVisible(field is not None)
+        self.field.setText(field or "")
+        # the on-screen keyboard covers the bottom of the screen: a sheet that
+        # asks for text is at the top
+        self.outer.setStretch(0, 0 if field is not None else 1)
+        self.outer.setStretch(2, 1 if field is not None else 0)
         self.show()
         self.raise_()
+        if field is not None:
+            self.field.selectAll()
+            self.field.setFocus()
 
     def close_sheet(self) -> None:
         self.on_ok = self.on_cancel = None
+        self.field.clearFocus()
         self.hide()
 
     def _accept(self) -> None:
@@ -1235,10 +1259,14 @@ class Shell(QWidget):
             desktop.append(self._row("trash", ("#FCA5A5", "#DC2626"), "Remove XFCE", self._confirm_remove_xfce,
                                      f"Frees about {XFCE_SIZE}"))
         self._group(layout, "DESKTOP", desktop)
+        custom = s.resolution not in remote.RESOLUTIONS
         self._group(layout, "SCREEN SIZE", [
-            self._row("monitor", REMOTE_GRADIENT, size.replace("x", " × "), self._set_remote("resolution", size),
-                      checked=s.resolution == size)
-            for size in remote.RESOLUTIONS
+            *(self._row("monitor", REMOTE_GRADIENT, size.replace("x", " × "), self._set_remote("resolution", size),
+                        checked=s.resolution == size)
+              for size in remote.RESOLUTIONS),
+            self._row("monitor", REMOTE_GRADIENT, "Custom", self._ask_remote_resolution,
+                      s.resolution.replace("x", " × ") if custom else "Any width × height, such as a tablet's",
+                      checked=custom),
         ])
         self._group(layout, "PASSWORD", [
             self._row("lock", ("#A78BFA", "#6D28D9"), s.password, self._new_remote_password,
@@ -1280,6 +1308,25 @@ class Shell(QWidget):
             remote.save_settings(s)
             self._build_remote()
         return apply
+
+    def _ask_remote_resolution(self, problem: str = "") -> None:
+        low, high = remote.MIN_RESOLUTION, remote.MAX_RESOLUTION
+        text = (f"Width × height in pixels, such as 2388x1668: from {low[0]} × {low[1]} "
+                f"to {high[0]} × {high[1]}.")
+        s = remote.load_settings()
+
+        def apply() -> None:
+            entered = self.sheet.field.text()
+            size = remote.parse_resolution(entered)
+            if size is None:
+                # after this sheet closed
+                QTimer.singleShot(0, lambda: self._ask_remote_resolution(f"“{entered}” isn't a size it can have."))
+                return
+            self._set_remote("resolution", size)()
+
+        self.sheet.ask(theme.app_tile("monitor", dp(52), REMOTE_GRADIENT), "Custom screen size",
+                       f"{problem} {text}".strip(), "Use", apply,
+                       field="" if s.resolution in remote.RESOLUTIONS else s.resolution)
 
     def _new_remote_password(self) -> None:
         s = remote.load_settings()

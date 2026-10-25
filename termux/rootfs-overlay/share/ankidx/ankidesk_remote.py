@@ -66,6 +66,8 @@ DISPLAY = os.environ.get("ANKIDX_REMOTE_DISPLAY", ":1")
 LOCAL, TAILSCALE, ALL = "local", "tailscale", "all"
 LISTEN = (LOCAL, TAILSCALE, ALL)
 RESOLUTIONS = ("1280x800", "1600x900", "1920x1080", "2560x1440")
+# besides those, any size in this range (Settings > Remote desktop > Custom)
+MIN_RESOLUTION, MAX_RESOLUTION = (640, 480), (7680, 4320)
 SIMPLE, XFCE = "simple", "xfce"
 DESKTOPS = (SIMPLE, XFCE)
 # what choosing XFCE installs: Termux's xfce4 has no xfdesktop, without which
@@ -110,7 +112,7 @@ class Settings:
             return "Choose a desktop."
         if self.desktop == XFCE and not xfce_installed():
             return "XFCE isn't installed: choose it again to install it."
-        if self.resolution not in RESOLUTIONS:
+        if parse_resolution(self.resolution) != self.resolution:
             return "Choose a screen size."
         for port in (self.vnc_port, self.web_port):
             if not 1024 <= port <= 65535:
@@ -120,6 +122,19 @@ class Settings:
         if len(self.password) < 6:
             return "The password needs at least 6 characters."
         return None
+
+
+def parse_resolution(text: str) -> str | None:
+    """"2388x1668" (also "2388 × 1668", "2388 1668") as "2388x1668", or None
+    when it isn't a size the remote screen can have."""
+    parts = text.lower().replace("×", "x").replace("x", " ").split()
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return None
+    width, height = int(parts[0]), int(parts[1])
+    if not (MIN_RESOLUTION[0] <= width <= MAX_RESOLUTION[0]
+            and MIN_RESOLUTION[1] <= height <= MAX_RESOLUTION[1]):
+        return None
+    return f"{width}x{height}"
 
 
 def new_password() -> str:

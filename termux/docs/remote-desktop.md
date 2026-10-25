@@ -68,5 +68,14 @@ Samsung M30s (Android 11), XFCE desktop, 2026-10-23:
 | Scale 1.5, Apply, Keep (before the fix: screen 1280 × 720 and "Disabled" for good; on the user's phone x11vnc was gone too) | ✅ xfsettingsd still can't scale; the screen is back at 1920 × 1080 after 3 s, noVNC connected throughout |
 | Window Scaling 2× (Appearance) | ✅ works, x11vnc unaffected |
 
+Emulator (Android 17), 2026-10-25: Screen size › Custom.
+
+| Test | Result |
+| --- | --- |
+| `tools/test_on_device.sh`: 26 tests (new: custom sizes accepted, `parse_resolution` takes `2388x1668`, `2388 × 1668` and `2388 1668`, refuses sizes outside 640 × 480 to 7680 × 4320) | ✅ |
+| Turn on at 2388 × 1668: Xvfb, x11vnc and the web viewer start, RandR modes 2388x1668 and the common smaller ones, Anki's screen 2388 × 1668 | ✅ |
+| Anki's User interface size on the remote screen (175%) kept apart from the phone's (150%) | ✅ |
+| Remote page › Custom (XTest taps): the sheet asks above the on-screen keyboard (it used to sit under it); `100x5` is explained and asked again; `2388x1668` is saved and the row shows "2388 × 1668" checked | ✅ after a fix (sheets with a text field at the top) |
+
 Not done yet: Tailscale and Wi-Fi from another computer, long sessions
 with the screen off, 2560 × 1440.

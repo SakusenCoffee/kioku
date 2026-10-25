@@ -208,6 +208,17 @@ class RemoteTest(unittest.TestCase):
         self.assertIn("1024", S(password="abcdefgh", vnc_port=80).problem())
         self.assertIsNotNone(S(password="abcdefgh", resolution="99x99").problem())
         self.assertIsNotNone(S(password="abcdefgh", listen="moon").problem())
+        self.assertIsNone(S(password="abcdefgh", resolution="2388x1668").problem())
+        self.assertIsNotNone(S(password="abcdefgh", resolution="2388 x 1668").problem())
+
+    def test_parse_resolution(self) -> None:
+        parse = self.r.parse_resolution
+        self.assertEqual(parse("2360x1640"), "2360x1640")
+        self.assertEqual(parse(" 2388 × 1668 "), "2388x1668")
+        self.assertEqual(parse("2388 1668"), "2388x1668")
+        self.assertEqual(parse("1920X1080"), "1920x1080")
+        for bad in ("", "1920", "1920x", "axb", "1920x1080x24", "-1920x1080", "100x100", "9000x4000"):
+            self.assertIsNone(parse(bad), bad)
 
     def test_bind_host(self) -> None:
         S = self.r.Settings

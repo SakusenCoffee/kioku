@@ -35,6 +35,7 @@ def prepare() -> None:
     _set_timezone()
     http.setup(web.js("origin"))
     _add_fonts()
+    _frameless_windows()
     _fill_screen()
     _save_after_changes()
     if dev_allowed():
@@ -90,6 +91,40 @@ def _add_fonts() -> None:
                 )
 
     aqt.AnkiApp.__init__ = init_with_fonts  # type: ignore[method-assign]
+
+
+def _frameless_windows() -> None:
+    """Qt for WebAssembly draws a desktop frame (title, maximize, close) on
+    every top-level window, above the title bar with Back that Kioku's
+    windows module gives them as on a phone. Drop it when a window shows.
+    Set on the QWindow: QWidget.setWindowFlag() hides the window to apply
+    it, which would end a dialog's exec()."""
+    import aqt
+    from PyQt6.QtCore import QEvent, QObject, Qt
+    from PyQt6.QtWidgets import QWidget
+
+    frameless = Qt.WindowType.FramelessWindowHint
+
+    class Watch(QObject):
+        def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+            if (
+                event is not None
+                and event.type() == QEvent.Type.Show
+                and isinstance(obj, QWidget)
+                and obj.isWindow()
+                and (window := obj.windowHandle()) is not None
+                and not window.flags() & frameless
+            ):
+                window.setFlags(window.flags() | frameless)
+            return False
+
+    init = aqt.AnkiApp.__init__
+
+    def init_with_watch(self: Any, *args: Any, **kwargs: Any) -> None:
+        init(self, *args, **kwargs)
+        self.installEventFilter(Watch(self))
+
+    aqt.AnkiApp.__init__ = init_with_watch  # type: ignore[method-assign]
 
 
 def _fill_screen() -> None:

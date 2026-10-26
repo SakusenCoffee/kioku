@@ -9,7 +9,7 @@ picked .apkg, an export) are uploaded before the call or fetched after it.
 
 Each thread has its own socket to `kioku-backend:1`, which the app page
 sends to the server's relay (shell/kioku-web.js). shell/storage.js sets
-KIOKU_SERVER_HOME and KIOKU_CLIENT (one per tab, kept across reloads) when
+KIOKU_SERVER_HOME and KIOKU_CLIENT (one per browser) when
 the page was served by a Kioku server.
 """
 
@@ -60,6 +60,9 @@ CACHED = {
     "get_notetype_legacy",
     "get_current_deck",
 }
+# fetched ahead in one round trip, used once (Browse's rows)
+PREFETCHED = {"browser_row_for_id"}
+PREFETCH_ROWS = 30
 # reads that leave the cache alone
 READS = CACHED | {
     "browser_row_for_id",
@@ -103,7 +106,7 @@ def install() -> None:
 
     methods = _methods(_backend_generated)
     original = RustBackend._run_command
-    cache: dict[tuple[int, int, bytes], bytes] = {}
+    cache = _cache
 
     def run_command(self: Any, service: int, method: int, input: bytes) -> bytes:
         name, message_type = methods.get((service, method), ("", None))
@@ -115,6 +118,8 @@ def install() -> None:
         key = (service, method, input)
         if name in CACHED and key in cache:
             return cache[key]
+        if name in PREFETCHED and (ahead := cache.pop(key, None)) is not None:
+            return ahead
         if name not in READS:
             cache.clear()
         output = _call(service, method, input, message_type if name in _PATH_METHODS else None)
@@ -135,10 +140,14 @@ def install() -> None:
     RustBackend._run_command = run_command  # type: ignore[method-assign]
     RustBackend._db_command = db_command  # type: ignore[method-assign]
     _patch_media()
+    _patch_browse(methods)
     logger.info("server mode: collection on the server, home %s", SERVER_HOME)
 
 
 _PATH_METHODS: set[str] = set()
+# (service, method, request) -> response: CACHED reads and PREFETCHED rows,
+# dropped by any other call
+_cache: dict[tuple[int, int, bytes], bytes] = {}
 
 
 def _methods(module: Any) -> dict[tuple[int, int], tuple[str, Any]]:
@@ -211,6 +220,9 @@ def _call(service: int, method: int, input: bytes, message_type: Any) -> bytes:
             if not path.startswith("/"):
                 return None
             if (on_server := server_path(path)) is not None:
+                if os.path.isdir(path):
+                    # made here by Anki (pm.backupFolder()): there too
+                    _request("M", on_server.encode())
                 return on_server
             name = os.path.basename(path).encode()
             if os.path.isfile(path):
@@ -259,15 +271,25 @@ def _take_over() -> bool:
 
 
 def _lease_lost() -> None:
+    """The page says so (shell/server.js; its button reloads) and the GUI
+    thread stops there, rather than Anki showing errors for every call."""
+    if threading.current_thread() is threading.main_thread():
+        _park()
+    from aqt import mw
+
+    mw.taskman.run_on_main(_park)
+    raise LeaseLost("Kioku is open on another device.")
+
+
+def _park() -> None:
+    import _kioku_web
+
     from . import web
 
-    if threading.current_thread() is threading.main_thread():
-        web.js("takenOver")
-    else:
-        from aqt import mw
-
-        mw.taskman.run_on_main(lambda: web.js("takenOver"))
-    raise LeaseLost("Kioku is open on another device.")
+    web.js("takenOver")
+    while True:
+        # yields to the browser, so the page and its button keep working
+        _kioku_web.sleep(1000)
 
 
 # transport
@@ -305,6 +327,20 @@ def _send(kind: str, payload: bytes) -> tuple[int, bytes]:
         _write(sock, kind, payload)
     try:
         return _read(sock)
+    except OSError:
+        _local.sock = None
+        sock.close()
+        raise
+
+
+def _send_many(kind: str, payloads: list[bytes]) -> list[tuple[int, bytes]]:
+    """Requests sent together and answered in order: one round trip."""
+    sock = getattr(_local, "sock", None) or _connect()
+    _local.sock = sock
+    try:
+        for payload in payloads:
+            _write(sock, kind, payload)
+        return [_read(sock) for _ in payloads]
     except OSError:
         _local.sock = None
         sock.close()
@@ -369,6 +405,35 @@ def _open_scratch_collection(backend: Any, methods: dict) -> None:
         )
         backend._backend.command(*key, request.SerializeToString())
         backend._kioku_scratch = True
+
+
+def _patch_browse(methods: dict) -> None:
+    """Browse asks for its rows one call each: on a miss, the next rows
+    that need fetching are asked for together."""
+    from aqt.browser.table.model import DataModel
+
+    key, request = next((k, cls) for k, (name, cls) in methods.items() if name == "browser_row_for_id" and cls)
+    original = DataModel._fetch_row_and_update_cache
+
+    def fetch_row(self: Any, index: Any, item: int, old_row: Any) -> Any:
+        if (*key, request(val=item).SerializeToString()) not in _cache:
+            ids = [
+                i
+                for i in self._items[index.row() : index.row() + PREFETCH_ROWS]
+                if i == item or (row := self._rows.get(i)) is None or row.is_stale(self._stale_cutoff)
+            ]
+            inputs = [request(val=i).SerializeToString() for i in ids]
+            if len(inputs) > 1:
+                try:
+                    replies = _send_many("C", [struct.pack(">HHB", *key, 0) + i for i in inputs])
+                except OSError:
+                    replies = []
+                for input, (status, output) in zip(inputs, replies):
+                    if status == OK:
+                        _cache[(*key, input)] = output
+        return original(self, index, item, old_row)
+
+    DataModel._fetch_row_and_update_cache = fetch_row  # type: ignore[method-assign]
 
 
 def media_url(filename: str) -> str:

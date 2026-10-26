@@ -27,6 +27,21 @@ WORK = tempfile.mkdtemp(prefix="kioku-server-test-")
 DATA = os.path.join(WORK, "data")
 PROFILE_DIR = os.path.join(DATA, "home/Documents/Anki2/User 1")
 results = []
+ADDON = 1771074083  # Review Heatmap
+
+
+# counts round trips to the server from here on, and Browse rows asked
+# for one at a time
+COUNT_TRIPS = """import kioku_platform.remote as r, struct
+r._trips = r._single_rows = 0
+row = next(k for k, (n, _) in r._methods(__import__("anki._backend_generated", fromlist=["x"])).items() if n == "browser_row_for_id")
+for name in ("_send", "_send_many"):
+    def counted(kind, payload, _f=getattr(r, name), _single=name == "_send"):
+        r._trips += 1
+        if _single and kind == "C" and struct.unpack(">HH", payload[:4]) == row:
+            r._single_rows += 1
+        return _f(kind, payload)
+    setattr(r, name, counted)"""
 
 
 def check(name: str, expr: str, wait: int = 2000) -> list:
@@ -69,12 +84,31 @@ def server_check(name: str, ok: bool, detail: object = "") -> None:
     print(results[-1])
 
 
-server = subprocess.Popen(
-    [sys.executable, os.path.join(WEB, "tools/serve.py"), os.path.join(WEB, "build/cmake"), str(PORT)],
-    env=dict(os.environ, KIOKU_DATA=DATA, KIOKU_AUTH="none"),
-    stderr=open(os.path.join(WORK, "server.log"), "w"),
-)
-try:
+def start_server() -> subprocess.Popen:
+    return subprocess.Popen(
+        [sys.executable, os.path.join(WEB, "tools/serve.py"), os.path.join(WEB, "build/cmake"), str(PORT)],
+        env=dict(os.environ, KIOKU_DATA=DATA, KIOKU_AUTH="none"),
+        stderr=open(os.path.join(WORK, "server.log"), "w"),
+    )
+
+
+def finish() -> None:
+    failed = [r for r in results if " FAIL" in r]
+    print(f"\n{len(results) - len(failed)}/{len(results)} passed; data in {WORK}")
+    sys.exit(1 if failed else 0)
+
+
+def main() -> None:
+    server = start_server()
+    try:
+        test()
+    finally:
+        server.terminate()
+        server.wait()
+    finish()
+
+
+def test() -> None:
     time.sleep(2)
     run(
         [
@@ -90,7 +124,16 @@ try:
             ["py", "import aqt\naqt.mw.moveToState('deckBrowser')", 0, 3000],
             ["upload", DECK, [614, 666], 25000], ["click", 943, 66, 12000], ["click", 48, 21, 5000],
             check("import .apkg with media", "(mw.col.note_count() > 1, mw.col.note_count())"),
+            ["py", COUNT_TRIPS, 0, 500],
+            ["py", "import aqt\naqt._b = aqt.dialogs.open('Browser', aqt.mw)\naqt._b.search_for('')", 0, 10000],
+            check("browse: rows fetched together", "(lambda m, r: (r._single_rows <= 3 and all(m.get_row(m.index(i, 0)).cells[0].text for i in range(5)), (r._trips, 'round trips', r._single_rows, 'single rows', m.len_rows(), 'rows')))(aqt._b.table._model, __import__('kioku_platform.remote', fromlist=['x']))"),
+            ["py", "import aqt\naqt._b.close()", 0, 3000],
+            ["py", "import aqt\nfrom aqt import gui_hooks\naqt._played = []\ngui_hooks.av_player_did_begin_playing.append(lambda p, t: aqt._played.append(type(p).__name__))", 0, 300],
+            ["py", "import aqt\nfrom aqt.sound import av_player\nfrom anki.sound import SoundOrVideoTag\nav_player.play_tags([SoundOrVideoTag(filename='cmn-的.mp3')])", 0, 3000],
+            check("audio: plays from the server", "('ServerAudioPlayer' in aqt._played, aqt._played)"),
             check("media: have() asks the server", "(lambda fs: (bool(fs) and mw.col.media.have(fs[0]) and not mw.col.media.have('no-such-file.png'), fs[:1]))([f for nid in mw.col.find_notes('')[:300] for n in [mw.col.get_note(nid)] for f in mw.col.media.files_in_str(n.mid, n.joined_fields())])"),
+            # Get Add-ons' code path (Review Heatmap), through the relay
+            ["py", f"import aqt\nfrom aqt.addons import download_addons\ndownload_addons(aqt.mw, aqt.mw.addonManager, [{ADDON}], lambda *a: None)", 0, 20000],
             ["py", "import aqt\naqt.mw.moveToState('deckBrowser')", 0, 12000],
         ],
         "chromeA",
@@ -103,18 +146,43 @@ try:
     if media:
         with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/__kioku/media/{urllib.request.quote(media[0])}") as r:
             server_check("server: /__kioku/media serves them", r.status == 200, r.status)
+    server_check("server: add-on saved there", os.path.isfile(os.path.join(DATA, f"home/Documents/Anki2/addons21/{ADDON}/__init__.py")))
     server_check("server: profiles and preferences saved", os.path.exists(os.path.join(DATA, "home/Documents/Anki2/prefs21.db")))
 
     run(
         [
             ["wait", 9000],
+            ["shot", os.path.join(WORK, "reload")],
             check("reload: same collection", "(mw.col.note_count() > 1 and mw.col.db.scalar('select count() from revlog') >= 1, mw.col.note_count())"),
+            check("reload: add-on loaded from the server's copy", f"('{ADDON}' in __import__('sys').modules, [a.dir_name for a in mw.addonManager.all_addon_meta()])"),
             check("reload: no collection in the browser", "(not os.path.exists(mw.col.path), os.listdir(os.path.dirname(mw.col.path)))"),
         ],
         "chromeA",
     )
 
-    # A works on; B opens meanwhile and takes over (askUser's Yes)
+    # A works on; B opens meanwhile and says No (B stops, A goes on), then
+    # opens again and takes over (Yes)
+    a = run(
+        [
+            ["wait", 9000],
+            ["py", "import aqt\naqt.mw.moveToState('overview')", 0, 30000],
+            ["py", "import aqt\naqt.mw.moveToState('deckBrowser')", 0, 3000],
+            check("device A: works on after B said No", "(mw.col.note_count() > 1, mw.col.note_count())"),
+            ["dom", "String(!!document.getElementById('kioku-taken'))"],
+        ],
+        "chromeA",
+        background=True,
+    )
+    time.sleep(15)
+    out = run(
+        [["wait", 9000], ["click", 886, 376, 4000], ["dom", "String(!!document.getElementById('kioku-taken'))"],
+         check("device B: No leaves it closed", "(mw.col is None, mw.col)")],
+        "chromeB",
+    )
+    server_check("device B: No shows 'open on another device'", "dom true" in out, [l for l in out.splitlines() if "dom " in l])
+    out = collect(a)
+    server_check("device A: not told anything", "dom false" in out, [l for l in out.splitlines() if "dom " in l])
+
     a = run(
         [
             ["wait", 9000],
@@ -129,10 +197,7 @@ try:
     run([["wait", 9000], ["click", 950, 376, 6000], check("device B: took over", "(mw.col is not None, mw.col.note_count() if mw.col else None)")], "chromeB")
     out = collect(a)
     server_check("device A: told it was taken over", "dom true" in out, [l for l in out.splitlines() if "dom " in l])
-finally:
-    server.terminate()
-    server.wait()
 
-failed = [r for r in results if " FAIL" in r]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed; data in {WORK}")
-sys.exit(1 if failed else 0)
+
+if __name__ == "__main__":
+    main()

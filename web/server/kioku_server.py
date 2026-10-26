@@ -253,6 +253,11 @@ def _handle(client: str, kind: str, payload: bytes) -> tuple[int, bytes]:
             data = f.read()
         shutil.rmtree(os.path.dirname(path), ignore_errors=True)
         return OK, data
+    if kind == "M":
+        if not inside(path, HOME):
+            return FAILED, b"outside the home folder"
+        os.makedirs(path, exist_ok=True)
+        return OK, b""
     if kind == "E":
         return OK, b"1" if inside(path, DATA) and os.path.exists(path) else b"0"
     return FAILED, f"unknown request {kind!r}".encode()

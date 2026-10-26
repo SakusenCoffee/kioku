@@ -8,11 +8,12 @@
 (() => {
   // same pattern as server/kioku_server.py
   const SERVER_ONLY = /(^|\/)(collection\.anki2[^/]*|collection\.media[^/]*|backups)(\/|$)/;
-  // one per tab, kept across reloads: the server's lease is per client
+  // one per browser (device): the server's lease is per client, so opening
+  // Kioku again in the same browser never asks to take over from itself
   let client;
   try {
-    client = sessionStorage.getItem("kiokuClient") || crypto.randomUUID();
-    sessionStorage.setItem("kiokuClient", client);
+    client = localStorage.getItem("kiokuClient") || crypto.randomUUID();
+    localStorage.setItem("kiokuClient", client);
   } catch {
     client = crypto.randomUUID();
   }

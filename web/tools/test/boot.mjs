@@ -10,7 +10,7 @@
 //   ["frames"]                state of each web view iframe
 //   ["pause"]                 stack of the main thread (link with --profiling-funcs)
 // Env: URL (app page, default http://127.0.0.1:8765/app.html), CHROME (browser path), NOFIRSTRUN=1 (profile already set up),
-// PROFILE (Chrome user data folder; keep it to test saved data across runs)
+// PROFILE (Chrome user data folder; keep it to test saved data across runs), VIEWPORT (WxH)
 import puppeteer from "puppeteer-core";
 const steps = JSON.parse(process.argv[2] || "[]");
 const browser = await puppeteer.launch({
@@ -19,7 +19,10 @@ const browser = await puppeteer.launch({
   userDataDir: process.env.PROFILE || undefined,
 });
 const page = await browser.newPage();
-await page.setViewport({ width: 1000, height: 700 });
+// VIEWPORT=430x932 for a phone (touch, 3x pixels)
+const [width, height] = (process.env.VIEWPORT || "1000x700").split("x").map(Number);
+const phone = !!process.env.VIEWPORT;
+await page.setViewport({ width, height, deviceScaleFactor: phone ? 3 : 1, isMobile: phone, hasTouch: phone });
 const t0 = Date.now();
 const log = (s) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${s}`);
 page.on("console", (m) => { const t = m.text(); if (!/OpenType|null function/.test(t)) log(t.slice(0, 400)); });

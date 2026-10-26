@@ -57,6 +57,15 @@ def embedder_policy(user_agent: str) -> str:
     return "require-corp" if webkit else "credentialless"
 
 
+def same_host(origin: str, host: str) -> bool:
+    """The page's Origin against Host: only the host name when a proxy
+    leaves the port out of Host (nginx's $host)."""
+    url = urllib.parse.urlsplit(origin)
+    if host.rsplit(":", 1)[-1].isdigit() and not host.endswith("]"):
+        return url.netloc.lower() == host.lower()
+    return bool(url.hostname) and url.hostname == host.strip("[]").lower()
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
@@ -149,10 +158,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def relay(self, target: str) -> None:
         # WebSockets aren't bound by CORS: without this any website open in
-        # the browser could use the relay
-        # (only the host: behind an https proxy the page is https, the
-        # request here plain http)
-        if urllib.parse.urlsplit(self.headers.get("Origin", "")).netloc != self.headers.get("Host"):
+        # the browser could use the relay (the scheme isn't compared: behind
+        # an https proxy the request here is plain http)
+        if not same_host(self.headers.get("Origin", ""), self.headers.get("Host", "")):
             self.send_error(403, "relay is for the app page only")
             return
         host, _, port = target.rpartition(":")

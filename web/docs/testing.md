@@ -323,20 +323,39 @@ after 20–41 s (no HTTP cache: `serve.py` sends `no-store`).
 
 ## Server mode
 
-`tools/test/server.py` (run with a Python that has `anki==$ANKI_PY_VERSION`
-installed; it starts `tools/serve.py` with a fresh `KIOKU_DATA` on port
-8767) — 2026-10-26, headless Chrome, HSK 1 deck:
+`tools/test/server.py` and `tools/test/server_sync.py` (run with a Python
+that has `anki==$ANKI_PY_VERSION` installed; they start `tools/serve.py`
+with a fresh `KIOKU_DATA` on port 8767) — 2026-10-26, headless Chrome,
+HSK 1 deck. `server.py`: 20/20.
 
 | Check | Result |
 | --- | --- |
 | First start: profile created, collection opened on the server, not in the browser | ✅ |
 | Add a note through the editor; study it | ✅ |
 | Import `.apkg` with media (upload to the server, 603 notes, 311 media files on the server) | ✅ |
-| `media.have()` asks the server; `/__kioku/media/<file>` serves media | ✅ |
+| Browse with 603 cards: rows fetched ahead together (no row asked for alone; 62 round trips to open it, was 143 calls) | ✅ |
+| Audio plays from `/__kioku/media`; `media.have()` asks the server | ✅ |
+| Get Add-ons (Review Heatmap, through the relay): files on the server; loaded after a reload | ✅ |
 | `prefs21.db` and profile folders saved on the server | ✅ |
-| New tab, same browser: same collection; still nothing in the browser | ✅ |
-| Device B opens while A is active: "Use it here instead?" → Yes, collection open on B | ✅ |
-| Device A's next action: refused, "Kioku is open on another device" shown | ✅ |
+| New tab, same browser: same collection, no take-over question; still nothing in the browser | ✅ |
+| Device B opens while A is active, answers **No**: B shows "open on another device", A works on, A isn't told anything | ✅ |
+| Device B answers **Yes**: collection open on B; A's next action refused, A shows "open on another device" | ✅ |
+
+`server_sync.py` (Anki's own sync server on 8790, and `ANKIWEB=1`): 7/7.
+
+| Check | Result |
+| --- | --- |
+| Login and first sync, run by the server's core: full sync required | ✅ |
+| Full upload (`aqt.sync.full_upload`); the core reopens the collection itself | ✅ |
+| Normal sync through Anki's Sync button, new note on the sync server | ✅ |
+| Media sync from the server (both files on the sync server) | ✅ |
+| AnkiWeb test account: login, endpoint from the first sync, full download over the server's collection (21,461 notes; nothing uploaded) | ✅ (after the `backups` folder fix) |
+
+WebKit: `selftest.py ios` (iOS Simulator Safari) with `KIOKU_DATA`: 32/35;
+the three failures are the smoke test's own checks that list the media
+folder in the browser (empty in server mode by design; 311 media files on
+the server). Export `.colpkg`/`.apkg`, Browse, Stats, cross-origin checks
+pass.
 
 Native checks (Python client `remote.py` against `kioku_server` in one
 process, scratch script): open, add, `col.db`, media, 3 reviews in 14 server
@@ -349,10 +368,14 @@ again, 1 s delay), right one sets an HttpOnly cookie; `..` in home and
 media paths refused.
 
 Docker (`docker/Dockerfile`, built in a GitHub codespace, 307 MB): login,
-`kioku.wasm` served brotli-encoded as `application/wasm`, a Python client
-through the real WebSocket relay opened a collection, added a note and
-media; files on the volume after `docker stop`.
+`kioku.wasm` served brotli-encoded as `application/wasm`. Behind Caddy 2,
+nginx (TLS, the manual's block) and Traefik v3 (the manual's labels), a
+Python client through the real WebSocket relay: login (cookie `Secure`
+behind nginx's https), open, add a note and media, a 30 MB media file;
+headless Chrome through Caddy: first start, add, review, import. `docker
+stop` with the collection open: closed at once, WAL checkpointed,
+`integrity_check` ok, the last note kept.
 
-Not tested yet: sync with AnkiWeb from the server, add-ons in server mode,
-Safari/iOS against a server, the GitHub image workflow, a real reverse
-proxy.
+Not tested yet: Safari on a Mac and a real iPhone against a server, the
+GitHub image workflow, a browser over https through a proxy (the proxies'
+TLS was tested with the Python client).

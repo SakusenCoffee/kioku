@@ -118,4 +118,8 @@ is unchanged.
 | `unable to open database file` for a new profile | its folder is saved to the server a moment later | the server creates the collection's folder on open |
 | Paths inside the data folder refused on macOS | `/var` vs `/private/var` | `KIOKU_DATA` and `inside()` use `realpath` |
 | Import page blank (`Failed to fetch dynamically imported module /_app/...`) | the service worker sent every other path of a page to the server's media | ask Anki's in-page server first, server media only for its 404s |
-| Reopening in a new tab asked to take over from itself | each tab has its own client id and the old tab's lease ran a minute | the tab frees its lease on `pagehide` (`sendBeacon`) |
+| Reopening in a new tab asked to take over from itself | each tab had its own client id and the old tab's lease ran a minute (`pagehide` doesn't come when the browser is killed) | one client id per browser (`localStorage`); tabs still free the lease on `pagehide` (`sendBeacon`) |
+| Anki's backups (and the full download, which backs up first) failed: `BackendIOError` | Anki makes the profile's `backups` folder in the browser; the server's core writes there | a mapped path that is a folder in the browser is made on the server too (`M` request) |
+| Opening on another device's lease was asked again on "No" with Anki's "unable to open collection" error | the refused call raised into `loadCollection` | on a lost lease the GUI thread stops under the page's notice, yielding to the browser (`_kioku_web.sleep`) |
+| Relay refused behind nginx on a port other than 443: "relay is for the app page only" | `proxy_set_header Host $host` drops the port, so Origin and Host differed | the check compares host names when Host has no port (`same_host`); the manual uses `$http_host` |
+

@@ -37,9 +37,10 @@ small files ───── shell/server.js ── /__kioku/home/… ──▶ $
   its own socket to `kioku-backend:1`, which the page's WebSocket wrapper
   sends to the relay, and `serve.py` hands to `kioku_server` instead of a
   TCP host. Frames: 4-byte length, a kind byte (`H` hello, `C` call, `D`
-  db, `U`/`T`/`G` file in/out, `E` exists), zlib over 4 KB.
+  db, `U`/`T`/`G` file in/out, `M` make a folder, `E` exists), zlib over 4 KB.
 - **Paths.** Requests whose message has `*path*`/`*folder*` fields are
-  rewritten: `/home/web_user/…` becomes the server's home; other files
+  rewritten: `/home/web_user/…` becomes the server's home (a folder Anki
+  made in the browser, like `backups`, is made there too); other files
   (a picked `.apkg`) are uploaded first, and paths the call writes (an
   export) point at a server temp file that is fetched afterwards.
 - **Cache.** Reads repeated many times per card (`get_config_*`,
@@ -49,9 +50,12 @@ small files ───── shell/server.js ── /__kioku/home/… ──▶ $
 - **Lease.** One device uses a collection at a time. Opening it while
   another device made a call in the last minute asks "Use it here
   instead?"; the other device's next call is refused and its page shows
-  "Kioku is open on another device" with a button that reloads. Each tab
-  has its own client id (kept across reloads); closing or reloading a tab
-  frees the lease at once (`navigator.sendBeacon`).
+  "Kioku is open on another device" with a button that reloads; its GUI
+  thread stops there (yielding to the browser) instead of reporting errors.
+  Answering **No** does the same on the new device. The
+  client id is per browser (`localStorage`), so opening Kioku again in the
+  same browser never asks (two tabs there both use it); closing or
+  reloading a tab frees the lease at once (`navigator.sendBeacon`).
 - **Server side.** One backend for the whole server (one household; Anki's
   profiles are the people). Before another device opens the collection, or
   after `KIOKU_IDLE_MINUTES` without calls, it is closed (committed); the
@@ -80,8 +84,13 @@ server, before the cache): showing an answer 10, answering 15, opening
 Browse 143 (48 rows), scrolling Browse 24, adding a note 15. With the
 local helpers and the cache, the native test (`answerCard` loop) needs
 about 5 calls per card: a few milliseconds on a LAN, ~0.25 s per card at
-50 ms round trips. Browse still fetches its rows one call each; batching
-them is the next step if that is slow over the internet.
+50 ms round trips.
+
+Browse asks for its rows one call each. When a row is missing,
+`remote._patch_browse` sends the calls for the next 30 rows that need one
+together and the server answers them in order: one round trip. Opening
+Browse is then 62 round trips, most of them configuration and note type
+reads that the editor's saves (`update_notes`) drop from the cache.
 
 A WebSocket per thread costs one round trip per call and no HTTP headers;
 the main thread waits by yielding to the browser every 2 ms (`poll()` in

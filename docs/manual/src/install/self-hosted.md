@@ -60,7 +60,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
+        proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 1h;
     }
@@ -92,7 +92,8 @@ server {
 The collection is used by one device at a time. Opening Kioku on a second
 device while the first was used in the last minute asks **Use it here
 instead?**; the first device then shows "Kioku is open on another device"
-with a button to take it back. Closing the tab frees it at once.
+with a button to take it back. Closing the tab frees it at once; opening
+Kioku again in the same browser never asks.
 
 Profiles work as in Anki: one per person.
 
@@ -100,4 +101,10 @@ Profiles work as in Anki: one per person.
 
 You don't need to sync between your browsers. **Sync** in Kioku runs on
 the server, with AnkiWeb or [a sync server](../features/sync-server.md),
-for example to also use AnkiDroid or the Kioku apps (not tested yet).
+for example to also use AnkiDroid or the Kioku apps.
+
+## Add-ons
+
+Add-ons run in the browser, as in the web version; their files are kept on
+the server, so every browser gets the ones you installed. Add-ons that
+reach other websites need `KIOKU_RELAY_ALLOW` for ports other than 443.

@@ -7,7 +7,8 @@
   "assets": {
     "directory": "../build/dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/__relay/*", "/kioku.wasm", "/kioku.data"]
+    // every request: worker.js sets the isolation headers by browser
+    "run_worker_first": true
   },
   "vars": {
     // hosts:ports the relay connects to (fnmatch-style * as in

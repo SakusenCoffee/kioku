@@ -23,12 +23,22 @@ ALLOW = ["*:443"] + [
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 
+def embedder_policy(user_agent: str) -> str:
+    """credentialless: cross-origin scripts and images (add-ons' CDNs) load
+    without opting in, as they do on the desktop. WebKit (Safari, every iOS
+    browser) lacks it: the page would not be cross-origin isolated and
+    Emscripten's threads fail (DataCloneError), so it gets require-corp and
+    sw.js proxies cross-origin requests. Same test in cloudflare/worker.js
+    and shell/sw.js."""
+    webkit = "AppleWebKit" in user_agent and "Chrome/" not in user_agent
+    return "require-corp" if webkit else "credentialless"
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
-        # credentialless: cross-origin scripts and images (add-ons' CDNs) load
-        # without opting in, as they do on the desktop; Safari lacks it
-        self.send_header("Cross-Origin-Embedder-Policy", "credentialless")
+        self.send_header("Cross-Origin-Embedder-Policy", embedder_policy(self.headers.get("User-Agent", "")))
+        self.send_header("Vary", "User-Agent")
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 

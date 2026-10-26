@@ -1,5 +1,6 @@
-// Kioku on Cloudflare Workers. Static assets (build/dist) are served by
-// Cloudflare with _headers; this runs first for:
+// Kioku on Cloudflare Workers. Runs first for every request:
+// - every response gets the cross-origin isolation headers threads need,
+//   with the embedder policy the browser supports (embedderPolicy());
 // - /kioku.wasm and /kioku.data: Cloudflare takes files up to 25 MiB, so
 //   they are stored brotli-compressed (.br, tools/dist.sh) and served with
 //   Content-Encoding: br, which the browser undoes;
@@ -9,25 +10,36 @@ import { connect } from "cloudflare:sockets";
 
 const RELAY = "/__relay/";
 const PACKED = { "/kioku.wasm": "application/wasm", "/kioku.data": "application/octet-stream" };
-const ISOLATION = {
-  "Cross-Origin-Opener-Policy": "same-origin",
-  "Cross-Origin-Embedder-Policy": "credentialless",
-};
+// credentialless: cross-origin scripts and images (add-ons' CDNs) load
+// without opting in. WebKit (Safari, every iOS browser) lacks it and takes
+// require-corp only (see embedder_policy in tools/serve.py)
+function embedderPolicy(request) {
+  const agent = request.headers.get("User-Agent") || "";
+  return /AppleWebKit/.test(agent) && !/Chrome\//.test(agent) ? "require-corp" : "credentialless";
+}
+
+function isolated(response, request, init = {}) {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(init.headers || {})) headers.set(name, value);
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Embedder-Policy", embedderPolicy(request));
+  headers.append("Vary", "User-Agent");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers, ...init.response });
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith(RELAY)) return relay(request, env, url.pathname.slice(RELAY.length));
     const type = PACKED[url.pathname];
-    if (!type) return env.ASSETS.fetch(request);
+    if (!type) return isolated(await env.ASSETS.fetch(request), request);
     const asset = await env.ASSETS.fetch(new Request(new URL(url.pathname + ".br", url), request));
     // 304 (If-None-Match) or 404 as they are
-    if (asset.status !== 200) return asset;
-    const headers = new Headers(asset.headers);
-    headers.set("Content-Type", type);
-    headers.set("Content-Encoding", "br");
-    for (const [name, value] of Object.entries(ISOLATION)) headers.set(name, value);
-    return new Response(asset.body, { status: 200, headers, encodeBody: "manual" });
+    if (asset.status !== 200) return isolated(asset, request);
+    return isolated(asset, request, {
+      headers: { "Content-Type": type, "Content-Encoding": "br" },
+      response: { encodeBody: "manual" },
+    });
   },
 };
 

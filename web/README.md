@@ -107,7 +107,7 @@ Cloudflare.
 | `src/main.cpp` | CPython embedding, statically linked extension modules, the `_kioku_web` module and the `kioku_post` export |
 | `python/kioku_platform/` | the web platform layer for Kioku's shared `kioku` package: web views, in-process web server, files |
 | `shell/` | the app page, its service worker and JavaScript glue |
-| `cloudflare/` | hosting on Cloudflare Workers: `worker.js` (compressed wasm, socket relay), `wrangler.jsonc`, `_headers` |
+| `cloudflare/` | hosting on Cloudflare Workers: `worker.js` (isolation headers, compressed wasm, socket relay), `wrangler.jsonc` |
 | `patches/` | patches for Rust crates, CPython and PyQt6 |
 | `tools/` | build scripts, `serve.py`, `dist.sh` (files for hosting), the node core test (`link_core.sh`, `core/`), the browser driver (`test/`) |
 | `app/probe.py` | the first feasibility probe (Qt's `kioku.html` runs it) |

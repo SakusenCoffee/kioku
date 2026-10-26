@@ -144,8 +144,15 @@ keeps the main window fitted to the page (`_fill_screen`).
 
 The page needs COOP/COEP headers (GitHub Pages can't send them) and, for
 sync and add-ons, the socket relay next to it. On Cloudflare Workers (free
-plan) `build/dist` is served as static assets with `_headers`, and
-`cloudflare/worker.js` runs first for:
+plan) `build/dist` is served as static assets, and `cloudflare/worker.js`
+runs first for every request:
+
+- every response: COOP `same-origin` and COEP `credentialless`, or
+  `require-corp` for WebKit (Safari, every iOS browser), which lacks
+  `credentialless`; without isolation Emscripten's threads fail there
+  (`DataCloneError`). With `require-corp` the service worker fetches
+  cross-origin images and scripts with CORS (`shell/sw.js`). `tools/serve.py`
+  does the same;
 
 - `/kioku.wasm`, `/kioku.data`: Cloudflare takes files up to 25 MiB, so
   `tools/dist.sh` stores them brotli-compressed (17 MB and 5.5 MB) and the

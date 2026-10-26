@@ -1,5 +1,0 @@
-# threads need SharedArrayBuffer, so the page must be cross-origin isolated;
-# credentialless lets add-ons' CDN scripts load (see tools/serve.py)
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless

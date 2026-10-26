@@ -12,7 +12,7 @@ LIMIT=$((25 * 1024 * 1024))
 rm -rf "$OUT"
 mkdir -p "$OUT"
 cp "$SRC"/{app.html,kioku-web.js,sw.js,kioku.js,qtloader.js,app.data,app-data.js.metadata} "$OUT/"
-cp "$ROOT"/cloudflare/{_headers,_redirects} "$OUT/"
+cp "$ROOT"/cloudflare/_redirects "$OUT/"
 for f in kioku.wasm kioku.data; do
     # compressing takes a minute or two: keep it while the file is unchanged
     # (brotli gives the .br its source's time)

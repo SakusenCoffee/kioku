@@ -14,7 +14,13 @@
     <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#2c2c2c" media="(prefers-color-scheme: dark)">
     <style>
-      html, body { padding: 0; margin: 0; overflow: hidden; height: 100%; background: #f5f5f5; }
+      /* Anki's background; follows the system until Anki says its theme
+         (data-theme, from kioku-web.js theme()) */
+      :root { --background: #f5f5f5; }
+      @media (prefers-color-scheme: dark) { :root { --background: #2c2c2c; } }
+      :root[data-theme="light"] { --background: #f5f5f5; }
+      :root[data-theme="dark"] { --background: #2c2c2c; }
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100%; background: var(--background); }
       #screen { width: 100%; height: 100%; }
       #status { font: 15px system-ui, sans-serif; color: #555; text-align: center; margin-top: 30vh; }
       #status progress { display: block; width: 240px; max-width: calc(100% - 32px); margin: 12px auto 0; }
@@ -30,13 +36,13 @@
       #warning button { font: inherit; font-weight: 600; padding: 8px 28px; border: 0; border-radius: 8px;
         color: #fff; background: #2563eb; cursor: pointer; }
       /* iOS 27 draws a blur over the top edge of a home screen app; a
-         fixed element painted there (invisibly: text clip, no text) stops it */
+         fixed element painted there (invisibly: text clip, no text) stops it.
+         iOS takes the status bar's color from it */
       @media (display-mode: standalone) {
         #ios-top { position: fixed; inset: 0 0 auto; height: 11px; z-index: 1; pointer-events: none;
-          background: #f5f5f5; -webkit-background-clip: text; background-clip: text; }
+          background: var(--background); -webkit-background-clip: text; background-clip: text; }
       }
       @media (prefers-color-scheme: dark) {
-        html, body { background: #2c2c2c; }
         #status { color: #aaa; }
         #warning .progress { color: #aaa; }
         #warning { color: #eee; background: #3a3a3a; }

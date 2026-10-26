@@ -71,6 +71,18 @@
       return matchMedia("(prefers-color-scheme: dark)").matches ? "1" : "";
     },
 
+    // Anki's theme, which may differ from the system's: the page around
+    // the app and the status bar (theme-color) follow it
+    theme(dark) {
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      const color = getComputedStyle(document.documentElement).getPropertyValue("--background").trim();
+      for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+        meta.removeAttribute("media");
+        meta.content = color;
+      }
+      return "1";
+    },
+
     origin() {
       return location.origin;
     },

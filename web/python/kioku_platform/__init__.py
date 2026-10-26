@@ -39,6 +39,7 @@ def prepare() -> None:
     _frameless_windows()
     _fill_screen()
     _save_after_changes()
+    _follow_theme()
     if dev_allowed():
         web.listen("devexec", _devexec)
 
@@ -242,6 +243,19 @@ def _save_after_changes() -> None:
 
     gui_hooks.operation_did_execute.append(lambda *_: web.js("persist"))
     gui_hooks.profile_will_close.append(lambda: web.js("persist"))
+
+
+def _follow_theme() -> None:
+    """Tell the page Anki's theme (Preferences > Theme can differ from the
+    system's), so the page around the app and iOS's status bar match it."""
+    from aqt import gui_hooks
+    from aqt.theme import theme_manager
+
+    def tell() -> None:
+        web.js("theme", theme_manager.night_mode)
+
+    gui_hooks.main_window_did_init.append(tell)
+    gui_hooks.theme_did_change.append(tell)
 
 
 def _devexec(event: dict) -> None:

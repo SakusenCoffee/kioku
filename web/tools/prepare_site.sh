@@ -1,11 +1,11 @@
 #!/bin/bash
 # Anki's Python packages and their dependencies for the wasm file system:
 # the site-packages the Kioku repository assembles for iOS
-# (shared/tools/prepare_site.sh), minus the iOS-only rubicon and orjson's
-# Python half (orjson isn't built for wasm yet; Anki falls back to json).
+# (shared/tools/prepare_site.sh), minus the iOS-only rubicon. orjson's and
+# markupsafe's native halves are linked in (build_orjson.sh, CMakeLists.txt).
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
-rsync -a --delete --exclude __pycache__ --exclude 'rubicon*' --exclude orjson \
+rsync -a --delete --exclude __pycache__ --exclude 'rubicon*' \
     "$KIOKU_REPO/ios/build/site/" "$ROOT/build/site/"
 # urllib3 takes sys.platform == "emscripten" for Pyodide and imports its
 # `js` module; without Pyodide, keep its plain (socket) connections

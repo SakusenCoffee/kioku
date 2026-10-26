@@ -64,6 +64,7 @@ tools/fetch_deps.sh      # Emscripten 4.0.7, Qt 6.11 for WebAssembly, fonts
 tools/build_python.sh    # CPython 3.14 for Emscripten (patched; builds OpenSSL first)
 tools/build_rust.sh      # Anki's Rust core for wasm32-unknown-emscripten
 tools/build_rpds.sh      # rpds-py (jsonschema, add-on manifests)
+tools/build_orjson.sh    # orjson (faster JSON for Anki's core)
 tools/gen_pyqt.sh        # PyQt6 bindings for Qt for WebAssembly
 tools/prepare_site.sh    # Anki's Python packages
 tools/build.sh           # build/cmake: kioku.wasm, app.html, sw.js, ...

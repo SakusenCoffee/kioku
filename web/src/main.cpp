@@ -23,6 +23,8 @@ PyObject *PyInit_QtNetwork(void);
 PyObject *PyInit_QtSvg(void);
 PyObject *PyInit__rsbridge(void);
 PyObject *PyInit_rpds(void);
+PyObject *PyInit_orjson(void);
+PyObject *PyInit__speedups(void);
 }
 
 // Emscripten's poll() ignores its timeout and returns at once, so a socket
@@ -154,6 +156,8 @@ int main(int argc, char *argv[]) {
     PyImport_AppendInittab("PyQt6.QtSvg", PyInit_QtSvg);
     PyImport_AppendInittab("anki._rsbridge", PyInit__rsbridge);
     PyImport_AppendInittab("rpds", PyInit_rpds);
+    PyImport_AppendInittab("orjson.orjson", PyInit_orjson);
+    PyImport_AppendInittab("markupsafe._speedups", PyInit__speedups);
     PyImport_AppendInittab("_kioku_web", PyInit__kioku_web);
     kioku_install_js();
 

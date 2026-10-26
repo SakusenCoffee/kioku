@@ -28,6 +28,11 @@ foreach(m QtCore QtGui QtWidgets QtNetwork QtSvg)
     target_compile_options(pyqt6_${m} PRIVATE -w)
 endforeach()
 
+# markupsafe's C escaping (Jinja, Flask); its pure-Python fallback otherwise
+file(GLOB MARKUPSAFE_SPEEDUPS ${KIOKU_REPO}/ios/deps/sdist/markupsafe-*/src/markupsafe/_speedups.c)
+add_library(markupsafe_speedups STATIC ${MARKUPSAFE_SPEEDUPS})
+target_include_directories(markupsafe_speedups PRIVATE ${PYTHON_INCLUDE})
+
 qt_add_executable(kioku src/main.cpp)
 target_include_directories(kioku PRIVATE ${PYTHON_INCLUDE})
 file(GLOB HACL_OBJECTS ${CPY_BUILD}/Modules/_hacl/*.o)
@@ -37,6 +42,8 @@ target_link_libraries(kioku PRIVATE
     pyqt6_sip
     ${CMAKE_SOURCE_DIR}/build/rust-target/wasm32-unknown-emscripten/release/librsbridge.a
     ${CMAKE_SOURCE_DIR}/build/rust-target-rpds/wasm32-unknown-emscripten/release/librpds.a
+    ${CMAKE_SOURCE_DIR}/build/rust-target-orjson/wasm32-unknown-emscripten/release/liborjson.a
+    markupsafe_speedups
     ${CPY_BUILD}/libpython3.14.a ${CPY_BUILD}/Modules/expat/libexpat.a ${HACL_OBJECTS}
     ${PREFIX}/lib/libmpdec.a ${PREFIX}/lib/libffi.a ${PREFIX}/lib/libssl.a ${PREFIX}/lib/libcrypto.a
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg

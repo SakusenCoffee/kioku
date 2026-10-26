@@ -8,6 +8,7 @@
   - [Android, native](install/android.md)
   - [Android, Termux](install/termux.md)
   - [Web browser (experimental)](install/web.md)
+  - [Self-hosted server (Docker)](install/self-hosted.md)
 - [Getting Started](getting-started.md)
 - [Using Kioku on a Phone](using/intro.md)
   - [Native apps (iPhone, Android)](using/native.md)

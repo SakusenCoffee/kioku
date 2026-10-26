@@ -320,3 +320,39 @@ took 299 ms, stats 43 ms, export 172 ms).
 
 Start on the phone over the LAN: Python up after 15–27 s, Anki's main loop
 after 20–41 s (no HTTP cache: `serve.py` sends `no-store`).
+
+## Server mode
+
+`tools/test/server.py` (run with a Python that has `anki==$ANKI_PY_VERSION`
+installed; it starts `tools/serve.py` with a fresh `KIOKU_DATA` on port
+8767) — 2026-10-26, headless Chrome, HSK 1 deck:
+
+| Check | Result |
+| --- | --- |
+| First start: profile created, collection opened on the server, not in the browser | ✅ |
+| Add a note through the editor; study it | ✅ |
+| Import `.apkg` with media (upload to the server, 603 notes, 311 media files on the server) | ✅ |
+| `media.have()` asks the server; `/__kioku/media/<file>` serves media | ✅ |
+| `prefs21.db` and profile folders saved on the server | ✅ |
+| New tab, same browser: same collection; still nothing in the browser | ✅ |
+| Device B opens while A is active: "Use it here instead?" → Yes, collection open on B | ✅ |
+| Device A's next action: refused, "Kioku is open on another device" shown | ✅ |
+
+Native checks (Python client `remote.py` against `kioku_server` in one
+process, scratch script): open, add, `col.db`, media, 3 reviews in 14 server
+calls, export (temp file fetched), import (file uploaded), busy → take over
+→ old client refused, clean close.
+
+Auth with curl: `/app.html` → login page, other files, `/__kioku/` and the
+relay 401 without the cookie, manifest public; wrong password 200 (form
+again, 1 s delay), right one sets an HttpOnly cookie; `..` in home and
+media paths refused.
+
+Docker (`docker/Dockerfile`, built in a GitHub codespace, 307 MB): login,
+`kioku.wasm` served brotli-encoded as `application/wasm`, a Python client
+through the real WebSocket relay opened a collection, added a note and
+media; files on the volume after `docker stop`.
+
+Not tested yet: sync with AnkiWeb from the server, add-ons in server mode,
+Safari/iOS against a server, the GitHub image workflow, a real reverse
+proxy.

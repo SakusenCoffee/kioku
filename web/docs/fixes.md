@@ -106,3 +106,16 @@ is unchanged.
 | iPhone: "RangeError: Out of memory", or Safari reloading the tab | the pool's 32 Web Workers (~55 MB each) and a 4 GB shared wasm memory reservation | the page picks the pool (`kiokuThreads`: 12 on phones, 16 elsewhere; `PTHREAD_POOL_SIZE=Module.kiokuThreads`) and the memory (`wasmMemory`: 1 GB on phones, else the largest of 4/2/1 GB that can be reserved); Python's `Thread.start()` yields while it waits on the main thread, a fallback for threads beyond the pool |
 | iPhone: the tab ended right after start with a saved collection, and while importing | Emscripten's IDBFS sync handles every changed file at once (all structured-cloned into one transaction, each with its spare capacity; all read back together on start), and MEMFS grows files over 1 MB by 1.125x, so a 30 MB media file was copied ~30 times while written | `shell/storage.js` syncs with its own loop on IDBFS's helpers: changed files only, ≤ 8 MB per transaction when saving (exact-size copies, which also trims the files kept in memory), 8 files per transaction when loading, each transaction finished before the next; MEMFS grows files 2x |
 | iPhone: the tab still ended once at most starts after real use (right after "Starting main loop"), and the Simulator and Mac Safari showed WebKit's heap jumping ~900 MB there and during imports, then settling | rslib's whole backend dispatch was inlined into one 1.4 MB wasm function (pyo3's trampoline for `Backend.command`); once hot, JavaScriptCore's optimizing tier compiled it, transiently taking hundreds of MB | `tools/build_rust.sh` builds rsbridge with `opt-level = "s"`: that function is 830 KB, the wasm 97 MB (was 100), and every start on the iPhone opened the first time. rsbridge, rpds and orjson each bundle Rust's std: linked with `--allow-multiple-definition` (`rust_eh_personality` clashed) |
+
+## Server mode (docs/server.md)
+
+| Problem | Cause | Fix |
+| --- | --- | --- |
+| Generated backend methods missed when mapping `(service, method)` to names | some methods have docstrings, so a one-regex parse skipped them | split `_backend_generated.py` at each `def` (`remote._methods`, `kioku_server.method_names`) |
+| `'FieldDescriptor' object has no attribute 'label'` | protobuf 6 dropped `label` | `remote._repeated()` uses `is_repeated` when present |
+| `cannot import name 'MediaManager'` | `anki.media` imported before `anki.collection` (circular) | import `anki.collection` first |
+| `col.db` calls went to the browser's empty backend (`CollectionNotOpen`) | `DBProxy` calls `_rsbridge`'s `db_command` directly, not `_run_command` | `RustBackend._db_command` patched too; server kind `D` |
+| `unable to open database file` for a new profile | its folder is saved to the server a moment later | the server creates the collection's folder on open |
+| Paths inside the data folder refused on macOS | `/var` vs `/private/var` | `KIOKU_DATA` and `inside()` use `realpath` |
+| Import page blank (`Failed to fetch dynamically imported module /_app/...`) | the service worker sent every other path of a page to the server's media | ask Anki's in-page server first, server media only for its 404s |
+| Reopening in a new tab asked to take over from itself | each tab has its own client id and the old tab's lease ran a minute | the tab frees its lease on `pagehide` (`sendBeacon`) |

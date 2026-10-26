@@ -14,7 +14,8 @@ may crash or lose data.
   information**).
 - **Sync with a test AnkiWeb account**, not the one you use.
 - Your collection stays in that browser on that device. Clearing the site's
-  data deletes it.
+  data deletes it. To keep it on your own server instead, see
+  [Self-hosted server](self-hosted.md).
 
 Tested in Chrome on a computer; other browsers and phones aren't tested
 yet. The first start downloads about 32 MB.

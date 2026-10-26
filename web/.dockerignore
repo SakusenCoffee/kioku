@@ -1,0 +1,5 @@
+# docker build context (tools/docker.sh): only what docker/Dockerfile copies
+*
+!tools/serve.py
+!server/kioku_server.py
+!build/dist/

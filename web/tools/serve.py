@@ -4,6 +4,12 @@ app page (kioku-web.js) points at /__relay/<host>:<port>; it is passed on
 over TCP (TLS stays inside wasm). Only for the app page (Origin check):
 any host on port 443 (AnkiWeb, add-ons' services), other ports with
 KIOKU_RELAY_ALLOW="host:port,*.example.com:8080".
+KIOKU_SELFTEST=<folder> (tools/test/selftest.py) adds tools/test/selftest.js
+to app.html and serves /__selftest/: steps.json and files from the folder,
+the page's console appended to its log.txt.
+KIOKU_HOST=0.0.0.0 listens on the LAN too; a phone then needs https (the
+page needs a secure context): KIOKU_TLS=<cert.pem>:<key.pem>, for example
+from mkcert with its CA trusted on the phone.
 Usage: serve.py <dir> [port]"""
 import base64
 import fnmatch
@@ -12,6 +18,7 @@ import hashlib
 import http.server
 import os
 import socket
+import ssl
 import struct
 import sys
 import threading
@@ -21,6 +28,9 @@ ALLOW = ["*:443"] + [
     a.strip() for a in os.environ.get("KIOKU_RELAY_ALLOW", "").split(",") if a.strip()
 ]
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+SELFTEST = os.environ.get("KIOKU_SELFTEST")
+TLS = os.environ.get("KIOKU_TLS")
+SELFTEST_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test", "selftest.js")
 
 
 def embedder_policy(user_agent: str) -> str:
@@ -50,13 +60,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/app.html")
             self.end_headers()
+        elif SELFTEST and self.path.split("?")[0] == "/app.html":
+            with open(os.path.join(self.directory, "app.html"), "rb") as f:
+                page = f.read()
+            page = page.replace(b'<script src="kioku-web.js">', b'<script src="__selftest/selftest.js"></script>\n    <script src="kioku-web.js">')
+            self.send_bytes(page, "text/html")
+        elif SELFTEST and self.path.startswith("/__selftest/"):
+            name = self.path[len("/__selftest/") :].split("?")[0]
+            path = SELFTEST_JS if name == "selftest.js" else os.path.join(SELFTEST, os.path.basename(name))
+            if not os.path.isfile(path):
+                self.send_error(404)
+                return
+            with open(path, "rb") as f:
+                self.send_bytes(f.read(), self.guess_type(path))
         else:
             super().do_GET()
+
+    def do_POST(self) -> None:
+        if not (SELFTEST and self.path == "/__selftest/log"):
+            self.send_error(404)
+            return
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        with open(os.path.join(SELFTEST, "log.txt"), "ab") as f:
+            f.write(body)
+        self.send_bytes(b"", "text/plain")
+
+    def send_bytes(self, data: bytes, content_type: str) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def relay(self, target: str) -> None:
         # WebSockets aren't bound by CORS: without this any website open in
         # the browser could use the relay
-        if self.headers.get("Origin") != f"http://{self.headers.get('Host')}":
+        scheme = "https" if TLS else "http"
+        if self.headers.get("Origin") != f"{scheme}://{self.headers.get('Host')}":
             self.send_error(403, "relay is for the app page only")
             return
         host, _, port = target.rpartition(":")
@@ -142,4 +182,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 port = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
 handler = functools.partial(Handler, directory=sys.argv[1])
-http.server.ThreadingHTTPServer(("127.0.0.1", port), handler).serve_forever()
+server = http.server.ThreadingHTTPServer((os.environ.get("KIOKU_HOST", "127.0.0.1"), port), handler)
+if TLS:
+    cert, _, key = TLS.partition(":")
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert, key)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+server.serve_forever()

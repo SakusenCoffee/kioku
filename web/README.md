@@ -134,6 +134,6 @@ Cloudflare.
 | `shell/` | the app page, its service worker and JavaScript glue |
 | `cloudflare/` | hosting on Cloudflare Workers: `worker.js` (isolation headers, compressed wasm, socket relay), `wrangler.jsonc` |
 | `patches/` | patches for Rust crates, CPython and PyQt6 |
-| `tools/` | build scripts, `serve.py`, `dist.sh` (files for hosting), the node core test (`link_core.sh`, `core/`), the browser driver (`test/`) |
+| `tools/` | build scripts, `serve.py`, `dist.sh` (files for hosting), the node core test (`link_core.sh`, `core/`), the browser tests (`test/`: `boot.mjs`, `smoke.py`, `selftest.py` for Safari and iOS) |
 | `app/probe.py` | the first feasibility probe (Qt's `kioku.html` runs it) |
 | `docs/` | [architecture](docs/architecture.md), [fixes](docs/fixes.md), [testing](docs/testing.md) |

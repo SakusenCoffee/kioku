@@ -9,6 +9,15 @@
   Python core problems: the full app takes ~5 minutes to relink.
 - **Smoke test:** `python3 tools/test/smoke.py [deck.apkg]` (server on
   8765): ~4 minutes, prints PASS/FAIL per check. Run it after changes.
+- **Safari, iOS Safari (no WebDriver):** `python3 tools/test/selftest.py
+  safari|ios|chrome [deck.apkg]` runs the smoke test inside the page:
+  `tools/serve.py` (with `KIOKU_SELFTEST`) adds `tools/test/selftest.js` to
+  `app.html` on a fresh port (fresh storage), the page runs the steps and
+  posts its console back. Steps find buttons and fields by selector, so any
+  window size works. `safari` opens a tab in Safari, `ios` boots an iPhone
+  simulator (`IOS_DEVICE=<name or UDID>`) and screenshots the `shot` steps,
+  `chrome` (headless) checks the self-test against `smoke.py`.
+  `ONLY=cross` runs only the cross-origin check.
 - **The app (headless Chrome):** `python3 tools/serve.py build/cmake 8765`,
   then `cd tools/test && npm install` once and
   `node boot.mjs '<steps>'` (steps documented at the top of `boot.mjs`). Each
@@ -93,7 +102,7 @@ Local server: Anki's `anki-sync-server` built from Kioku's Anki source
 | Local server, fresh browser profile: Sync → "Download?" → Yes | ✅ 752 notes, 322 media files |
 | AnkiWeb (test account, fresh profile): `sync_collection` → full sync required → `full_download` | ✅ 20,858 notes, 39,754 cards, 9 decks, ~3 s; never uploaded |
 | `full_download` without a normal sync first | ⚠️ AnkiWeb 400 "missing original size" (skips `meta`, which picks the endpoint; Anki's UI never does this) |
-| Firefox, Safari, a phone browser | ⏳ not tested (`moveBefore()` and JSPI-free Asyncify should work; COOP/COEP needed everywhere) |
+| Firefox, Safari, a phone browser | Safari and iOS Safari: see 2026-10-26; Firefox ⏳ not tested |
 
 ### 2026-10-24 d: add-ons (Chrome 155, headless)
 
@@ -211,3 +220,103 @@ and `cloudflare/` with `wrangler dev` (wrangler 4.148.0), then deployed.
 | Welcome screen, Onigiri main menu (sidebar, Ready to go, decks, stats, activity heatmap), Onigiri menu | ✅ |
 | Onigiri › Onigiri Settings | ✅ opens and renders |
 | `NotFoundError: insertBefore` from its `web/injector.js:31` at each deck list render | ⚠️ the add-on's own bug, not the port's: `#deck-list-header` and `#deck-list-container` are inside a `<section>`, but it inserts into `.sidebar-expanded-content`; the same on the desktop. Last call of its `init()`, nothing skipped |
+
+### 2026-10-26: Safari and iOS Safari (`tools/test/selftest.py`)
+
+Safari stopped at start with `DataCloneError: The object can not be
+cloned` (WebKit lacks COEP `credentialless`; fixes.md). After the fix, the
+smoke test's checks plus web view checks (deck list, editor, question and
+answer, Stats graphs) in each browser, fresh storage, three page loads:
+
+| Browser | Result |
+| --- | --- |
+| Safari 27.0.1, macOS (a tab in the user's Safari) | ✅ 32/32, `crossOriginIsolated` true |
+| iOS Safari 26.4, iPhone 11 simulator (iOS 26.4) | ✅ 32/32; Kioku lays out at phone width (screenshots) |
+| Chrome 155, headless (self-test) | ✅ 32/32 |
+| Chrome 155, `smoke.py`, `serve.py` | ✅ 27/27 |
+| Chrome 155, `smoke.py`, Worker under `wrangler dev` (headers set by `worker.js`) | ✅ 27/27 |
+| iOS Safari, Worker under `wrangler dev` | ✅ starts (language dialog); `require-corp` on every path |
+| Card with an image and a script from another origin, with CORS but no CORP (`ONLY=cross`) | ✅ Safari, iOS Safari, Chrome; with sw.js's CORS fetch off, ❌ in Safari (the control) |
+| Same, an image with neither CORS nor CORP | Chrome loads it (`credentialless`); Safari, iOS Safari blocked (expected) |
+
+Seen only in WebKit: Anki's editor logs `TypeError: null is not an object
+(evaluating 'e.anchor')` when a field gets focus. Its caret save/restore
+reads `getSelection()` on the field's shadow root, which WebKit lacks, so
+the save is `null` and the restore throws. Typing and saving work (the
+note above was typed in Safari); only the caret position isn't restored.
+The native iOS app's WKWebView runs the same code. Not fixed.
+
+Safari asks "Do you want to download …?" for exports (iOS); the export
+itself is the same blob as in Chrome.
+
+### 2026-10-26 b: a real iPhone (iPhone 15 Pro Max, iOS 27.0.1, Safari 27.0.1)
+
+Served over the LAN with https (`selftest.py iphone`): the page needs a
+secure context, so plain `http://<LAN address>` doesn't start
+(`crossOriginIsolated` false, no service worker; checked on the phone). A
+certificate for the Mac's address (in `build/tls/`, from a local test CA
+trusted on the phone for the test, then removed). iOS refused mkcert's
+823-day certificate; one valid 180 days worked. Each phase opens in a new
+tab and the finished one goes to `about:blank`, as when the app is closed
+and opened again (`RELOAD=1`: reload the tab instead). Memory from
+Instruments (Activity Monitor template, `xctrace record --device`) and, for
+a breakdown, `footprint` of Mac Safari's web process (same WebKit).
+
+The Simulator passed everything (above) but the phone ended the tab
+("RangeError: Out of memory" for the user, or a silent reload). Page loads
+per phase show the restarts (1 = none):
+
+| Build | Result on the phone |
+| --- | --- |
+| 32 pool workers, 4 GB wasm memory maximum | killed at start (3 of 5 starts), at import |
+| 12 workers, 4 GB | phase 1 passed once, otherwise killed at start, import or restore |
+| 12 workers, 1 GB | 35/35; each start with the saved collection killed once (1, 2, 2, 2) |
+| + batched storage (`storage.js`) | 35/35; same (1, 2, 2, 2); a start right after an import alone: 1, 1, 1, 1 |
+| + rsbridge built for size (now) | **35/35, 1, 1, 1, 1**; reloading the tab (`RELOAD=1`): 35/35, 1, 2, 1, 1 |
+
+| Moment (12 workers, 4 GB, before the fixes) | Footprint |
+| --- | --- |
+| Loaded, deck list, Add, review | 225–490 MB |
+| Import (HSK 1, 25 MB, 311 media files) | spike to 1,891 MB, then ~880 MB |
+| Check Database / export | spike to 1,990 MB |
+| Reload restoring the saved collection | 1.0–1.4 GB, then ended |
+
+What the memory was (Mac Safari, phone settings): not data (60 MB stored,
+318 files) but WebKit's own heap, jumping ~900 MB when Anki's main loop
+started and during the import, then settling. Pool workers cost WebKit ~13
+MB each (24 vs 12); 2 fewer threads made no difference; one canvas. The
+jumps followed the hot code: one 1.4 MB wasm function (rsbridge's whole
+dispatch inlined) that Safari's optimizing compiler took hundreds of MB to
+compile. Built for size it is 830 KB. In desktop Chrome each pool worker
+took ~55–60 MB (`measureUserAgentSpecificMemory`); the app runs 10 threads
+at most, so the pool is 12 on phones and 16 elsewhere (`?threads=`); with 4
+it deadlocked at start (`ThreadPoolExecutor.submit()`, see
+`_start_threads_yielding`). A reload keeps the old page's memory until the
+new one runs, so reloading right after heavy use can still be ended once
+(Safari then loads the page again by itself). The Simulator's numbers (a 4.5
+GB spike while loading) don't match the phone's and aren't used.
+
+#### Performance: web build in Safari vs Kioku's native app, same iPhone
+
+`tools/test/bench_code.py` (Anki 26.09.3 in both; a new collection in a
+temporary folder): web `ONLY=bench selftest.py iphone`, native
+`ios/tools/devcmd.sh < tools/test/bench_code.py`. Mean of two runs each, ms;
+the web build with rsbridge built for size (at opt-level 3 Check Database
+took 299 ms, stats 43 ms, export 172 ms).
+
+| Operation | Native | Web | Web is slower |
+| --- | ---: | ---: | ---: |
+| Python: loop, 3M multiply-adds | 160 | 592 | 3.7× |
+| Python: json dumps+loads, 20k records | 23 | 57 | 2.5× |
+| Add 1000 notes | 218 | 450 | 2.1× |
+| Search all cards ×20 | 23 | 93 | 4.0× |
+| Search text ×20 | 11 | 44 | 4.1× |
+| Render 300 cards (question+answer) | 49 | 202 | 4.1× |
+| Deck tree ×20 | 4 | 26 | 7.1× |
+| Answer 200 cards | 90 | 208 | 2.3× |
+| Stats graphs ×3 | 3 | 16 | 5.8× |
+| Check Database | 28 | 171 | 6.2× |
+| Export .apkg (1000 notes) | 29 | 66 | 2.3× |
+
+Start on the phone over the LAN: Python up after 15–27 s, Anki's main loop
+after 20–41 s (no HTTP cache: `serve.py` sends `no-store`).

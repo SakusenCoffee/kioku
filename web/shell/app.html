@@ -29,6 +29,12 @@
       #warning form { text-align: right; margin: 0; }
       #warning button { font: inherit; font-weight: 600; padding: 8px 28px; border: 0; border-radius: 8px;
         color: #fff; background: #2563eb; cursor: pointer; }
+      /* iOS 27 draws a blur over the top edge of a home screen app; a
+         fixed element painted there (invisibly: text clip, no text) stops it */
+      @media (display-mode: standalone) {
+        #ios-top { position: fixed; inset: 0 0 auto; height: 11px; z-index: 1; pointer-events: none;
+          background: #f5f5f5; -webkit-background-clip: text; background-clip: text; }
+      }
       @media (prefers-color-scheme: dark) {
         html, body { background: #2c2c2c; }
         #status { color: #aaa; }
@@ -52,6 +58,7 @@
       <form method="dialog"><span class="progress"></span><button autofocus>OK</button></form>
     </dialog>
     <div id="screen" style="display: none"></div>
+    <div id="ios-top" aria-hidden="true"></div>
     <script src="kioku-web.js"></script>
     <script src="kioku.js"></script>
     <script src="qtloader.js"></script>

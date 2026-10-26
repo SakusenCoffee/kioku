@@ -11,7 +11,8 @@ OUT=${2:-$ROOT/build/dist}
 LIMIT=$((25 * 1024 * 1024))
 rm -rf "$OUT"
 mkdir -p "$OUT"
-cp "$SRC"/{app.html,kioku-web.js,sw.js,kioku.js,qtloader.js,app.data,app-data.js.metadata} "$OUT/"
+cp "$SRC"/{app.html,kioku-web.js,sw.js,manifest.webmanifest,kioku.js,qtloader.js,app.data,app-data.js.metadata} "$OUT/"
+cp -R "$SRC/icons" "$OUT/"
 cp "$ROOT"/cloudflare/_redirects "$OUT/"
 for f in kioku.wasm kioku.data; do
     # compressing takes a minute or two: keep it while the file is unchanged

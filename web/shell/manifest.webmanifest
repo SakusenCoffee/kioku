@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Kioku",
+  "short_name": "Kioku",
+  "description": "Anki desktop in your browser (experimental)",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#f5f5f5",
+  "icons": [
+    { "src": "icons/kioku-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/kioku-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/kioku-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -36,6 +36,20 @@ through OpenSSL built for wasm). The app can be served from any origin;
 Download: `kioku.wasm` 100 MB (17 MB with brotli), `kioku.data` 48 MB
 with fonts and time zones (14 MB with brotli).
 
+## Install as an app
+
+The page is an installable web app (`shell/manifest.webmanifest`, Kioku's
+icon): it opens full screen from the home screen, without the browser's
+address bar.
+
+- **iPhone, iPad (Safari):** Share › Add to Home Screen.
+- **Android (Chrome):** ⋮ › Add to Home screen (or Install app).
+- **Desktop Chrome or Edge:** the install button in the address bar.
+
+On iOS the home screen app keeps its own storage, apart from Safari's:
+import or sync your collection again there. It is also exempt from
+Safari's 7-day deletion of site data.
+
 ## Limits
 
 - **Size.** Profiles, collections and media live in the tab's memory and
@@ -45,7 +59,8 @@ with fonts and time zones (14 MB with brotli).
   (Chrome: up to 60%).
 - **Keeping data.** The app asks for persistent storage after the notice;
   without it the browser may delete the data when the disk runs low, and
-  Safari deletes it after 7 days without a visit. Export backups.
+  Safari deletes it after 7 days without a visit (not when added to the
+  Home Screen). Export backups.
 - **Saving** copies each changed file whole (the collection after every
   review), on the main thread: fine for small collections, slow for
   large ones.

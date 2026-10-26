@@ -64,6 +64,15 @@ Safari's 7-day deletion of site data.
 - **Saving** copies each changed file whole (the collection after every
   review), on the main thread: fine for small collections, slow for
   large ones.
+- **Memory on phones.** Safari ends a tab that uses too much memory and
+  loads it again. On an iPhone 15 Pro Max the full test passes and every
+  start opens the first time; reloading the tab right after heavy use can
+  still be ended once (docs/testing.md).
+- **Speed.** On an iPhone 15 Pro Max, Python runs 2.5–3.7× slower than in
+  Kioku's native app and Anki's database work 2–7× slower; single actions
+  stay well under a second (docs/testing.md). Opening the app takes about
+  20–40 s over a fast connection (downloading and compiling the 97 MB
+  wasm).
 
 ## Quick start
 

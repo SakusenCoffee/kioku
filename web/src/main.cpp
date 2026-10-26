@@ -94,8 +94,26 @@ static PyObject *web_respond(PyObject *, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+// Wait without blocking the page: the main thread yields to the browser with
+// emscripten_sleep() (Asyncify), workers sleep. A thread started beyond the
+// worker pool runs only once Emscripten's new worker has loaded, which
+// needs the main thread to yield (kioku_platform._start_threads_yielding).
+static PyObject *web_sleep(PyObject *, PyObject *args) {
+    int ms;
+    if (!PyArg_ParseTuple(args, "i", &ms)) return nullptr;
+    bool main = emscripten_is_main_runtime_thread();
+    Py_BEGIN_ALLOW_THREADS
+    if (main)
+        emscripten_sleep(ms);
+    else
+        usleep(ms * 1000);
+    Py_END_ALLOW_THREADS
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef web_methods[] = {
     {"run_script", web_run_script, METH_VARARGS, nullptr},
+    {"sleep", web_sleep, METH_VARARGS, nullptr},
     {"element_handle", web_element_handle, METH_VARARGS, nullptr},
     {"respond", web_respond, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr},

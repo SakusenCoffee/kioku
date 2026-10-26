@@ -4,6 +4,10 @@
 # Emscripten's JS setjmp/longjmp, which can't be linked with wasm exception
 # handling. Six dependencies need small emscripten patches (patches/*.patch,
 # applied to copies in deps/patched/ that cargo picks up via --config).
+# Built for size (opt-level s): at Anki's opt-level 3 the whole backend
+# dispatch was inlined into one 1.4 MB wasm function, and Safari's optimizing
+# compiler took hundreds of MB compiling it once it got hot (at start, during
+# an import): an iPhone ended the tab. At s it is 830 KB and the tab stays.
 set -uo pipefail
 source "$(dirname "$0")/env.sh"
 D=$ROOT/deps
@@ -31,4 +35,5 @@ PYO3_CONFIG_FILE=$KIOKU_REPO/shared/tools/pyo3/abi3.cfg cargo +nightly rustc -Zb
     --config "patch.crates-io.socket2.path=\"$D/patched/socket2-0.6.0\"" \
     --config "patch.crates-io.reqwest.path=\"$D/patched/reqwest-0.12.23\"" \
     --config "patch.crates-io.ring.path=\"$D/patched/ring-0.17.14\"" \
+    --config 'profile.release.opt-level="s"' \
     "$@" -p rsbridge --lib --release --target wasm32-unknown-emscripten --features rustls --crate-type staticlib

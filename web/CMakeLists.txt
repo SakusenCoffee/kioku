@@ -52,10 +52,18 @@ option(KIOKU_ASYNCIFY "Link with Asyncify (nested event loops)" OFF)
 if(KIOKU_ASYNCIFY)
     target_link_options(kioku PRIVATE -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576)
 endif()
-# Python's Thread.start() waits for the thread to run, which on the main
-# thread deadlocks once Emscripten has to create a new Web Worker for it
-# (the worker can only start when the main thread yields): pre-create enough
-set_target_properties(kioku PROPERTIES QT_WASM_PTHREAD_POOL_SIZE 32)
+# Web Workers pre-created for threads, each ~55 MB (its own JS heap and
+# wasm instance): 32 of them took 1.75 GB and got the tab killed on an
+# iPhone. The page picks the number (kiokuThreads in shell/app.html; the
+# app runs about 10 threads). Beyond the pool Emscripten creates a worker,
+# which loads only once the main thread yields: Python's Thread.start()
+# yields while it waits (kioku_platform._start_threads_yielding), a
+# fallback that can deadlock, so the pool must cover what the app runs.
+set_target_properties(kioku PROPERTIES QT_WASM_PTHREAD_POOL_SIZE Module.kiokuThreads)
+# rsbridge, rpds and orjson each bundle Rust's std (same toolchain and
+# flags): keep the first copy of a symbol (rust_eh_personality clashed once
+# rsbridge was built for size)
+target_link_options(kioku PRIVATE -Wl,--allow-multiple-definition)
 target_link_options(kioku PRIVATE
     -sUSE_ZLIB -sUSE_BZIP2 -sALLOW_TABLE_GROWTH --profiling-funcs -sSTACK_SIZE=5MB -sFORCE_FILESYSTEM -lidbfs.js -Wl,--wrap=poll
     "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/shell/storage.js"

@@ -125,6 +125,36 @@
         };
         return { done: () => { window.fetch = realFetch; note.textContent = ""; } };
       })();
+      // Threads need shared memory, whose maximum size is reserved up front.
+      // Emscripten asks for 4 GB, which iOS Safari may refuse ("RangeError:
+      // Out of memory"); take the largest that works (the module accepts a
+      // smaller maximum than it declares). The heap grows up to it, and stays
+      // at a few hundred MB (files live in JavaScript, storage.js). On an
+      // iPhone a 4 GB reservation got the tab killed at most starts, 1 GB
+      // didn't: phones take 1 GB. ?memory=MB to try another size
+      function sharedMemory() {
+        const asked = Number(new URLSearchParams(location.search).get("memory"));
+        const phone = /iPhone|iPad|iPod|Android|Mobile/.test(navigator.userAgent);
+        const sizes = asked > 0 ? [asked] : phone ? [1024, 512] : [4096, 2048, 1024, 512];
+        for (const mb of sizes) {
+          try {
+            const memory = new WebAssembly.Memory({ initial: 800, maximum: Math.min(mb * 16, 65536), shared: true });
+            console.log(`Kioku: memory up to ${mb} MB`);
+            return memory;
+          } catch (e) {
+            if (!(e instanceof RangeError)) throw e;
+          }
+        }
+        return undefined;
+      }
+      // Web Workers made up front for threads (the app runs about 10; more
+      // are made when needed), each ~55 MB: phones get few (32 got the tab
+      // killed on an iPhone). ?threads=N to try another number
+      function threads() {
+        const asked = Number(new URLSearchParams(location.search).get("threads"));
+        if (asked > 0) return asked;
+        return /iPhone|iPad|iPod|Android|Mobile/.test(navigator.userAgent) ? 12 : 16;
+      }
       (async function () {
         const status = document.querySelector("#status");
         const screen = document.querySelector("#screen");
@@ -136,6 +166,8 @@
           await navigator.serviceWorker.ready;
           await qtLoad({
             arguments: ["--kioku"],
+            wasmMemory: sharedMemory(),
+            kiokuThreads: threads(),
             qt: {
               onLoaded: () => {
                 progress.done();

@@ -31,6 +31,7 @@ def prepare() -> None:
     # the wasm file system has no system store
     os.environ.setdefault("SSL_CERT_FILE", "/site/certifi/cacert.pem")
     _ignore_socket_options()
+    _start_threads_yielding()
     web.start()
     _set_timezone()
     http.setup(web.js("origin"))
@@ -91,6 +92,40 @@ def _add_fonts() -> None:
                 )
 
     aqt.AnkiApp.__init__ = init_with_fonts  # type: ignore[method-assign]
+
+
+def _start_threads_yielding() -> None:
+    """Thread.start() waits until the new thread runs. Started beyond the
+    worker pool (CMakeLists.txt), the thread needs a new Web Worker, which
+    loads only when the main thread yields to the browser: waiting on the
+    main thread with Event.wait() never would. Wait there with
+    _kioku_web.sleep() instead. Only a fallback: while it yields, Qt's events
+    can re-enter Python on the main thread, and a caller holding a lock they
+    want deadlocks (ThreadPoolExecutor.submit() with a pool of 4), so the
+    pool covers what the app runs."""
+    import threading
+
+    import _kioku_web
+
+    start = threading.Thread.start
+
+    def start_yielding(self: threading.Thread) -> None:
+        if threading.current_thread() is not threading.main_thread():
+            return start(self)
+        started = self._started  # type: ignore[attr-defined]
+
+        def wait(timeout: float | None = None) -> bool:
+            while not started.is_set():
+                _kioku_web.sleep(1)
+            return True
+
+        started.wait = wait
+        try:
+            start(self)
+        finally:
+            del started.wait
+
+    threading.Thread.start = start_yielding  # type: ignore[method-assign]
 
 
 def _frameless_windows() -> None:

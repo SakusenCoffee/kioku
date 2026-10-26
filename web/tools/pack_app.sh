@@ -20,5 +20,5 @@ mv "$TMP/app.data" "$TMP/app-data.js.metadata" "$OUT/"
 # keep the loader's timestamp unless it changed, so the link stays up to date
 cmp -s "$TMP/app-data.js" "$OUT/app-data.js" || mv "$TMP/app-data.js" "$OUT/app-data.js"
 rm -rf "$TMP"
-cp "$ROOT/shell/app.html" "$ROOT/shell/sw.js" "$ROOT/shell/kioku-web.js" "$ROOT/shell/manifest.webmanifest" "$OUT/"
+cp "$ROOT/shell/app.html" "$ROOT/shell/sw.js" "$ROOT/shell/kioku-web.js" "$ROOT/shell/server.js" "$ROOT/shell/manifest.webmanifest" "$OUT/"
 rsync -a "$ROOT/shell/icons" "$OUT/"

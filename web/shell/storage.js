@@ -34,7 +34,7 @@ if (typeof ENVIRONMENT_IS_PTHREAD === "undefined" || !ENVIRONMENT_IS_PTHREAD) {
       }
       state = "saving";
       const run = () =>
-        kiokuSync(mount, false).then(
+        kiokuStore(mount, false).then(
           () => (state === "again" ? ((state = "saving"), run()) : (state = "idle")),
           (err) => {
             console.error("Kioku: saving files failed", err);
@@ -43,13 +43,27 @@ if (typeof ENVIRONMENT_IS_PTHREAD === "undefined" || !ENVIRONMENT_IS_PTHREAD) {
         );
       run();
     };
-    kiokuSync(mount, true).then(
+    kiokuStore(mount, true).then(
       () => removeRunDependency("kioku-storage"),
       (err) => {
         console.error("Kioku: loading saved files failed", err);
         removeRunDependency("kioku-storage");
       },
     );
+  });
+}
+
+// Served by a Kioku server (shell/server.js): its files instead of
+// IndexedDB, and Python is told (kioku_platform/remote.py)
+function kiokuStore(mount, populate) {
+  const server = globalThis.__kiokuServer;
+  return (server ? server.config : Promise.resolve(null)).then((config) => {
+    if (!config) return kiokuSync(mount, populate);
+    if (populate) {
+      ENV.KIOKU_SERVER_HOME = config.home;
+      ENV.KIOKU_CLIENT = config.client;
+    }
+    return server.sync(mount, populate, { FS, IDBFS });
   });
 }
 

@@ -1,7 +1,8 @@
 """Web platform layer for the shared kioku package: Anki's pages in
 <iframe>s served through a service worker (webview.py, http.py), files
 through the browser (files.py), audio and TTS through the page (audio.py).
-/home/web_user is kept in IndexedDB (src/main.cpp kioku_load_storage).
+/home/web_user is kept in IndexedDB (src/main.cpp kioku_load_storage), or
+on a Kioku server with the collection (remote.py).
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import logging
 import os
 from typing import Any, Callable
 
-from . import web
+from . import remote, web
 from .files import pick_files, save_path
 from .webview import WebView, delete_cookies, set_cookie
 
@@ -42,6 +43,8 @@ def prepare() -> None:
     _follow_theme()
     if dev_allowed():
         web.listen("devexec", _devexec)
+    if remote.enabled():
+        remote.install()
 
 
 def _set_timezone() -> None:
@@ -299,6 +302,8 @@ def open_folder(path: str) -> None:
 def audio_player(taskman: Any, media_folder: str) -> Any:
     from .audio import WebAudioPlayer
 
+    if remote.enabled():
+        return remote.audio_player(taskman, media_folder)
     return WebAudioPlayer(taskman, media_folder)
 
 

@@ -6,6 +6,18 @@
 const WEBKIT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent);
 const EMBEDDER_POLICY = WEBKIT ? "require-corp" : "credentialless";
 
+// served by a Kioku server (shell/server.js): media files come from it
+// (what Anki's own server doesn't have)
+const SERVER = fetch("/__kioku/server.json")
+  .then((r) => r.ok && (r.headers.get("Content-Type") || "").includes("json"))
+  .catch(() => false);
+
+async function media(request) {
+  const response = await forward(request);
+  if (response.status !== 404 || request.method !== "GET" || !(await SERVER)) return response;
+  return fetch("/__kioku/media" + new URL(request.url).pathname);
+}
+
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -70,6 +82,6 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     self.clients
       .get(event.clientId)
-      .then((c) => (c && c.frameType === "nested" ? forward(event.request) : fetch(event.request))),
+      .then((c) => (c && c.frameType === "nested" ? media(event.request) : fetch(event.request))),
   );
 });

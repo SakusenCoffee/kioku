@@ -8,6 +8,9 @@ FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
 
 ARG ANKI_PY_VERSION
 
+LABEL org.opencontainers.image.source="https://github.com/krmanik/kioku" \
+      org.opencontainers.image.description="Anki desktop on your server, used from any browser"
+
 ENV HOME=/config \
     TITLE=Anki \
     PIXELFLUX_WAYLAND=true \

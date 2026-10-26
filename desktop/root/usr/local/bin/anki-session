@@ -1,0 +1,27 @@
+#!/bin/bash
+# Anki in the streamed session (the window manager's autostart). Quitting
+# Anki opens it again, so the browser never shows an empty desktop.
+# `docker stop` sends TERM, which Anki answers by closing the collection
+# (and making its backup) before it exits.
+
+# Files dropped on the browser page land in ~/Desktop, and the browser's
+# Files panel downloads from there: Anki's open dialogs (import, images)
+# start in the working folder, its save dialogs (export) in Documents.
+transfer=${FILE_MANAGER_PATH:-$HOME/Desktop}
+mkdir -p "$transfer" "$HOME/.config"
+[ -f "$HOME/.config/user-dirs.dirs" ] ||
+    echo "XDG_DOCUMENTS_DIR=\"$transfer\"" > "$HOME/.config/user-dirs.dirs"
+cd "$transfer" || exit 1
+
+# ANKI_FIT_SCREEN=true: fitted to a phone's screen (anki_fit.py)
+anki=(/opt/anki/bin/anki)
+[ "${ANKI_FIT_SCREEN,,}" = true ] && anki=(/opt/anki/bin/python /usr/local/lib/kioku/anki_fit.py)
+
+trap 'kill -TERM "$pid" 2>/dev/null; wait "$pid"; exit 0' TERM INT HUP
+while true; do
+    # shellcheck disable=SC2086
+    "${anki[@]}" -b /config/Anki2 $ANKI_ARGS &
+    pid=$!
+    wait "$pid"
+    sleep 1
+done

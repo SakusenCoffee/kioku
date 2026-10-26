@@ -1,0 +1,14 @@
+#!/bin/bash
+# Stopping the container (s6-rc's anki-close service, which depends on
+# svc-de and svc-dbus): close Anki while its desktop and D-Bus are still
+# there. svc-de's own finish stops every desktop process at once and waits
+# 5 s, and Qt exits at once when D-Bus goes, both before Anki has closed
+# the collection. anki-session passes TERM on to Anki and doesn't start it
+# again.
+echo "[anki-close] closing Anki"
+pkill -TERM -f '^/bin/bash /usr/local/bin/anki-session' || exit 0
+for _ in $(seq 240); do
+    pgrep -f -- '-b /config/Anki2' >/dev/null || { echo "[anki-close] closed"; exit 0; }
+    sleep 0.25
+done
+echo "[anki-close] Anki still running after 60 s"

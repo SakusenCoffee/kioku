@@ -1,0 +1,65 @@
+# Anki desktop streamed to the browser (desktop/README.md):
+# ghcr.io/<owner>/kioku-desktop for amd64 and arm64, Anki from PyPI at
+# shared/versions.env's ANKI_PY_VERSION. The amd64 image is tested
+# (desktop/test/run.sh) before anything is pushed.
+name: Desktop image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag (default: the Anki version)
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions
+        run: |
+          source shared/versions.env
+          echo "ANKI_PY_VERSION=$ANKI_PY_VERSION" >> "$GITHUB_ENV"
+          TAG="${{ inputs.tag }}"
+          echo "TAG=${TAG:-$ANKI_TAG}" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/kioku-desktop" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build amd64 for the tests
+        uses: docker/build-push-action@v6
+        with:
+          context: desktop
+          load: true
+          build-args: ANKI_PY_VERSION=${{ env.ANKI_PY_VERSION }}
+          tags: kioku-desktop:test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test
+        working-directory: desktop/test
+        run: |
+          npm ci
+          IMAGE=kioku-desktop:test CHROME="$(which google-chrome)" ./run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: desktop/test/shots
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: desktop
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: ANKI_PY_VERSION=${{ env.ANKI_PY_VERSION }}
+          tags: ${{ env.IMAGE }}:${{ env.TAG }},${{ env.IMAGE }}:latest

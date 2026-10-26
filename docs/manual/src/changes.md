@@ -2,6 +2,46 @@
 
 All releases: [GitHub Releases](https://github.com/krmanik/kioku/releases).
 
+## Self-hosted server (Docker)
+
+New: `ghcr.io/krmanik/kioku-desktop`, Anki desktop 26.09.3 on your server
+or NAS, used from any browser. Your collection, media and add-ons stay on
+the server; the browser only shows Anki's screen.
+[Guide](install/self-hosted.md).
+
+## 0.2.5
+
+- Preferences › User interface size works (50–200%), and Preferences pages
+  scroll instead of squeezing their rows (iOS, Android).
+- No black flash when the keyboard opens in Add and Browse; the Add
+  window's tags and buttons stay above the keyboard (Android).
+- **Sync server on the phone** and **AnkiDroid's media** (Termux), like the
+  native variants.
+- Remote desktop: a custom screen size from 640 × 480 to 7680 × 4320, and
+  its own interface size (Termux).
+- Fixed a crash on a tap after a window or dialog closed (iOS).
+
+## 0.2.4
+
+- Add-on pages fit the phone screen; the deck list no longer flickers from
+  desktop to phone layout (iOS, Android).
+- Browse: add-on buttons next to the search box get their own row, and the
+  sidebar edge is wider and easier to drag (iOS, Android).
+- The progress window has a Cancel button and shows as a small card (iOS,
+  Android).
+- No more freezes at start or when opening Preferences or a menu while an
+  accessibility service (a password manager, Switch Access) is on (Android).
+
+## 0.2.3
+
+Anki 26.09.3.
+
+- **TestFlight** builds for iPhone and iPad ([sign up](https://forms.gle/fw4YMTdGbgD8nqPe8)).
+- Full screen: swipe right to get **Exit Full Screen** (iOS, Android).
+- Add-on side panels and pop-ups fit the phone; tooltips fit its width
+  (iOS, Android).
+- Anki's update prompt points to Kioku's releases.
+
 ## 0.2.2
 
 Anki 26.08.1.

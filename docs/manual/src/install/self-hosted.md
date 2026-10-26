@@ -8,6 +8,12 @@ on the server: the browser only shows Anki's screen and sends your keyboard,
 mouse and touches, so a large collection is never downloaded, copied or
 synced to your devices. Experimental: back up first.
 
+<img src="../images/docker-browse.png" alt="Anki desktop on a server, in a computer's browser: the Browse window over the deck list">
+
+| On a phone, with `ANKI_FIT_SCREEN` | Browse on a phone |
+| :---: | :---: |
+| <img src="../images/docker-phone-decks.png" width="240" alt="The deck list on a phone's browser, fitted to its width; the side menu's keyboard button in the corner"> | <img src="../images/docker-phone-browse.png" width="240" alt="Browse filling a phone's screen"> |
+
 ## Start it
 
 With Docker Compose (`compose.yaml`):

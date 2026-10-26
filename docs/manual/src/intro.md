@@ -2,7 +2,9 @@
 
 Kioku (記憶, "memory") runs the **unmodified Anki desktop app** on iPhone,
 iPad and Android: the same deck list, reviewer, Browse, editors, statistics
-and desktop add-ons, made to work with a touch screen.
+and desktop add-ons, made to work with a touch screen. It also runs in a
+browser tab, and on your own server for use from any browser
+([Which variant?](variants.md)).
 
 **On an iPhone:**
 
@@ -13,9 +15,10 @@ and desktop add-ons, made to work with a touch screen.
 Kioku *is* Anki desktop, so everything about studying, adding cards, deck
 options, searching, statistics, card templates and so on works exactly as
 described in the **[Anki Manual](https://docs.ankiweb.net/)**. This manual
-covers only what is different on a phone:
+covers only what is different on a phone or in a browser:
 
-- [installing and updating](install/intro.md) Kioku,
+- [installing and updating](install/intro.md) Kioku, or
+  [running it on your server](install/self-hosted.md),
 - [how the app behaves on a phone](using/intro.md): windows, the Back key,
   the keyboard, where your files are, add-ons,
 - [features only Kioku has](features/intro.md): a sync server on the phone,

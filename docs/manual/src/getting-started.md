@@ -1,6 +1,6 @@
 # Getting Started
 
-> **Applies to:** iPhone/iPad, Android native, Android Termux
+> **Applies to:** iPhone/iPad, Android native, Android Termux, web, Docker
 
 ## First start
 
@@ -26,6 +26,8 @@ Pick one:
   [Your Files](using/files.md#importing).
 - **AnkiDroid on the same Android phone.** Sync both apps through
   [the phone's sync server](features/sync-server.md), no AnkiWeb needed.
+- **Your server (Docker).** Copy your whole Anki folder there: see
+  [Your existing collection](install/self-hosted.md#your-existing-collection).
 
 Several people or setups? Use **profiles** (File › Switch Profile), as in
 [Anki](https://docs.ankiweb.net/profiles.html).

@@ -1,6 +1,7 @@
 # Screenshots
 
-Every screenshot of the three variants. The native ones were taken with
+Every screenshot of the phone variants, the web version and the Docker
+image. The native ones were taken with
 `shared/tools/readme_shots.sh` (profile with the NeetCode and HSK 1
 Recognition decks); the README strips are built from them by
 `shared/tools/make_readme_strips.py`.
@@ -49,3 +50,25 @@ Samsung M30s, Android 11. Anki runs in a small Linux desktop with a dock.
 | Software | Settings |
 | :---: | :---: |
 | <img src="../termux/docs/screenshots/software.png" width="240" alt="The Software page with recommended Linux apps"> | <img src="../termux/docs/screenshots/settings.png" width="240" alt="Settings with wallpapers and touch options"> |
+
+## Web
+
+Chrome on a computer.
+
+| Deck list | Add |
+| :---: | :---: |
+| <img src="../web/images/web-decks.png" width="320" alt="The web version's deck list"> | <img src="../web/images/web-add.png" width="320" alt="Adding a note in the web version"> |
+
+| Reviewing | Import |
+| :---: | :---: |
+| <img src="../web/images/web-review.png" width="320" alt="Reviewing a card in the web version"> | <img src="../web/images/web-import.png" width="320" alt="Importing a deck in the web version"> |
+
+## Self-hosted server (Docker)
+
+Anki desktop on the server, in Chrome (taken by `desktop/test/run.sh`).
+
+<img src="manual/src/images/docker-browse.png" width="640" alt="Browse over the deck list, in a computer's browser">
+
+| Phone, `ANKI_FIT_SCREEN` | Browse on a phone |
+| :---: | :---: |
+| <img src="manual/src/images/docker-phone-decks.png" width="240" alt="The deck list fitted to a phone's width"> | <img src="manual/src/images/docker-phone-browse.png" width="240" alt="Browse filling a phone's screen"> |

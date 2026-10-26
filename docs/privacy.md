@@ -1,10 +1,10 @@
 # Kioku privacy policy
 
-Last updated: 23 October 2026
+Last updated: 27 October 2026
 
-Kioku (the iOS, native Android and Termux apps from
-[github.com/krmanik/kioku](https://github.com/krmanik/kioku)) does not collect,
-store or share any personal data. It has no analytics, no ads, no tracking
+Kioku (the iOS, native Android and Termux apps, the web version and the
+Docker image from [github.com/krmanik/kioku](https://github.com/krmanik/kioku))
+does not collect, store or share any personal data. It has no analytics, no ads, no tracking
 and no account of its own.
 
 ## Your data
@@ -12,6 +12,14 @@ and no account of its own.
 Your collections, media, add-ons and settings stay on your device, in the
 app's own storage (on iOS, Kioku's folder in the Files app). The developer
 never receives them.
+
+- **Web version:** they stay in your browser's storage on that device. The
+  site is served by Cloudflare Workers, which stores nothing of yours. Its
+  relay passes AnkiWeb sync (and the few services it allows for add-ons)
+  through as an encrypted connection made in your browser, so the relay
+  can't read it.
+- **Docker image:** they stay on the server you run it on. The browser
+  receives only the picture and sound of Anki's screen, from your server.
 
 ## Network connections
 

@@ -13,7 +13,7 @@ templates), see [Anki: Troubleshooting](https://docs.ankiweb.net/troubleshooting
 | The sync conflict box (Upload/Download) has a large empty gap | iOS | it works; tap a button |
 | Review Heatmap is slightly wider than the screen | iOS, Android | drag sideways |
 | History button shows "History ▯" in Add | Android | cosmetic |
-| Add-ons that start programs (MeCab readings) | iOS, Android | use the Termux variant |
+| Add-ons that start programs (MeCab readings) | iOS, Android | use the Termux variant or the Docker image |
 
 iOS = iPhone/iPad, Android = Android native, Termux = Android Termux.
 
@@ -81,11 +81,40 @@ add-ons), **Repair runtime** (decks kept), **Share log**. See
 Switch Settings › Touch screen / Mouse pad. See
 [Termux desktop](using/termux.md#touch-screen-or-mouse-pad).
 
+## Self-hosted server (Docker)
+
+### The page stays black or doesn't connect
+
+Browsers play the stream only from a secure page: open it through your
+reverse proxy's `https://` address (or `http://localhost` on the server
+itself), not `http://<server address>:3000`. The proxy must pass
+WebSockets. See [HTTPS](install/self-hosted.md#https).
+
+### No sound
+
+Click the page once (browsers wait for a click before playing sound), and
+check the speaker button in the side menu.
+
+### Anki says it can't write its files
+
+`anki-config` must belong to the `PUID`/`PGID` user, for example after
+copying a collection there: `sudo chown -R 1000:1000 anki-config`.
+
+### Anki was closed
+
+It opens again by itself after a second. To change what runs, right-click
+the empty desktop.
+
+### What the container did
+
+`docker compose logs anki`. Anki's own log is in `anki-config/Anki2/logs`.
+
 ## Reporting a bug
 
 Open an issue on [GitHub](https://github.com/krmanik/kioku/issues) with:
 
-- the variant, Kioku version (Help › About) and phone model/OS version;
+- the variant, Kioku version (Help › About) and phone model/OS version
+  (Docker: the image tag and your browser);
 - what you did and what happened;
 - the log, if you can: iPhone, `kioku.log` in Files › Kioku; Android
   native, `Android/data/io.ankidesk.kioku/files/kioku.log`; Termux, **Share

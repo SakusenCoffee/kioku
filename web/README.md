@@ -4,8 +4,8 @@ Unmodified Anki desktop (aqt 26.09.3) running in a browser tab: CPython
 3.14, PyQt6, Qt 6.11 and Anki's Rust core compiled to WebAssembly and
 linked into one static `kioku.wasm`, the same design as
 [Kioku](https://github.com/krmanik/kioku)'s iOS and Android apps. This is an
-early port, not something to ship: studying works, but nothing survives a
-reload yet.
+early port: studying works and the collection is kept in the browser, but
+it is experimental.
 
 > [!WARNING]
 > Experimental and unstable, for testing only: it may crash or lose data.

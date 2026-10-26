@@ -27,10 +27,23 @@ It isn't, and there's no plan for the App Store. Install it from
 [TestFlight](install/ios.md#testflight) build is available: [sign up](https://forms.gle/fw4YMTdGbgD8nqPe8).
 
 **Which Anki version is inside?**
-Help › About shows it. Kioku 0.2.2 has Anki 26.08.1.
+Help › About shows it. Kioku 0.2.3 and later have Anki 26.09.3.
+
+**Can I use it on a computer?**
+Yes, in a browser: the [web version](install/web.md) runs in the tab
+(experimental), and the [Docker image](install/self-hosted.md) runs Anki
+desktop on your server and shows it in any browser, phones included. On
+your own computer, [Anki desktop](https://apps.ankiweb.net) itself is the
+better choice.
+
+**My collection is huge (gigabytes of media). Which one?**
+On a phone, any app variant keeps it on the phone. To use one copy from
+several devices without syncing it to each, use the
+[self-hosted server](install/self-hosted.md): only the screen travels to
+the browser.
 
 **Does it work on tablets?**
 Yes: iPads and Android tablets, in portrait and landscape.
 
 **Is there an Intel/32-bit Android build?**
-No: arm64 only.
+No: arm64 only. The Docker image runs on amd64 and arm64 servers.

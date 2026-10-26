@@ -109,20 +109,3 @@ is unchanged.
 | iPhone home screen app (iOS 27): a blur over the top of the screen | iOS 27 draws it over a home screen app's top edge, whatever `apple-mobile-web-app-status-bar-style` says | `shell/app.html`: a fixed 11 px strip at the top in `display-mode: standalone`, painted invisibly (background clipped to its text, which it has none of); iOS takes the status bar's color from it |
 | Status bar white in the dark theme; the page around the app followed the system's theme, not Anki's (Preferences › Theme) | the strip was always light, and the page only knew `prefers-color-scheme` | `_follow_theme()` tells the page Anki's theme (`main_window_did_init`, `theme_did_change`); `theme()` in `shell/kioku-web.js` sets `data-theme`, and the page background, the strip and `theme-color` follow it |
 | View › Zoom In: at 110% the reviewer's card ended a tenth short of its view, blank below; a page load dropped the zoom | the zoom factor was CSS `zoom` on the page's `<html>`, which in Safari keeps the viewport at full size | `zoom()` in `shell/kioku-web.js` lays the iframe out 1/factor the size and scales it up (`transform`), like QtWebEngine's page zoom; it's on the iframe, so it stays across loads |
-
-## Server mode (docs/server.md)
-
-| Problem | Cause | Fix |
-| --- | --- | --- |
-| Generated backend methods missed when mapping `(service, method)` to names | some methods have docstrings, so a one-regex parse skipped them | split `_backend_generated.py` at each `def` (`remote._methods`, `kioku_server.method_names`) |
-| `'FieldDescriptor' object has no attribute 'label'` | protobuf 6 dropped `label` | `remote._repeated()` uses `is_repeated` when present |
-| `cannot import name 'MediaManager'` | `anki.media` imported before `anki.collection` (circular) | import `anki.collection` first |
-| `col.db` calls went to the browser's empty backend (`CollectionNotOpen`) | `DBProxy` calls `_rsbridge`'s `db_command` directly, not `_run_command` | `RustBackend._db_command` patched too; server kind `D` |
-| `unable to open database file` for a new profile | its folder is saved to the server a moment later | the server creates the collection's folder on open |
-| Paths inside the data folder refused on macOS | `/var` vs `/private/var` | `KIOKU_DATA` and `inside()` use `realpath` |
-| Import page blank (`Failed to fetch dynamically imported module /_app/...`) | the service worker sent every other path of a page to the server's media | ask Anki's in-page server first, server media only for its 404s |
-| Reopening in a new tab asked to take over from itself | each tab had its own client id and the old tab's lease ran a minute (`pagehide` doesn't come when the browser is killed) | one client id per browser (`localStorage`); tabs still free the lease on `pagehide` (`sendBeacon`) |
-| Anki's backups (and the full download, which backs up first) failed: `BackendIOError` | Anki makes the profile's `backups` folder in the browser; the server's core writes there | a mapped path that is a folder in the browser is made on the server too (`M` request) |
-| Opening on another device's lease was asked again on "No" with Anki's "unable to open collection" error | the refused call raised into `loadCollection` | on a lost lease the GUI thread stops under the page's notice, yielding to the browser (`_kioku_web.sleep`) |
-| Relay refused behind nginx on a port other than 443: "relay is for the app page only" | `proxy_set_header Host $host` drops the port, so Origin and Host differed | the check compares host names when Host has no port (`same_host`); the manual uses `$http_host` |
-

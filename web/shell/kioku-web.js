@@ -358,13 +358,12 @@
       web.stopAudio();
       let data;
       try {
-        // server mode: a media URL (kioku_platform/remote.py)
-        data = path.startsWith("/__kioku/") ? null : window.__kiokuFS.readFile(path);
+        data = window.__kiokuFS.readFile(path);
       } catch (e) {
         web.post({ type: "audio_done", token });
         return "";
       }
-      const url = data ? URL.createObjectURL(new Blob([data])) : path;
+      const url = URL.createObjectURL(new Blob([data]));
       const a = (audio = new Audio(url));
       const done = () => {
         if (a.done) return;

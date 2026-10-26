@@ -7,8 +7,6 @@ KIOKU_RELAY_ALLOW="host:port,*.example.com:8080".
 KIOKU_SELFTEST=<folder> (tools/test/selftest.py) adds tools/test/selftest.js
 to app.html and serves /__selftest/: steps.json and files from the folder,
 the page's console appended to its log.txt.
-KIOKU_DATA=<folder> is server mode (server/kioku_server.py, docs/server.md):
-the collection stays in that folder and the app only shows it.
 KIOKU_HOST=0.0.0.0 listens on the LAN too; a phone then needs https (the
 page needs a secure context): KIOKU_TLS=<cert.pem>:<key.pem>, for example
 from mkcert with its CA trusted on the phone.
@@ -18,9 +16,7 @@ import fnmatch
 import functools
 import hashlib
 import http.server
-import io
 import os
-import signal
 import socket
 import ssl
 import struct
@@ -35,14 +31,6 @@ ALLOW = ["*:443"] + [
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 SELFTEST = os.environ.get("KIOKU_SELFTEST")
 TLS = os.environ.get("KIOKU_TLS")
-SERVER = None
-if os.environ.get("KIOKU_DATA"):
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server"))
-    import kioku_server as SERVER
-
-    SERVER.check_settings()
-    # docker stop: close the collection (finally at the end)
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 SELFTEST_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test", "selftest.js")
 
 
@@ -74,47 +62,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
-    def server_mode(self, method: str) -> bool:
-        """Login and /__kioku/ in server mode; True when handled."""
-        if not SERVER:
-            return False
-        if not SERVER.authorized(self):
-            SERVER.refuse(self)
-            return True
-        if self.path.startswith("/__kioku/"):
-            SERVER.handle(self, method)
-            return True
-        return False
-
-    def do_HEAD(self) -> None:
-        if not self.server_mode("HEAD"):
-            super().do_HEAD()
-
-    def do_PUT(self) -> None:
-        if not self.server_mode("PUT"):
-            self.send_error(405)
-
-    def do_DELETE(self) -> None:
-        if not self.server_mode("DELETE"):
-            self.send_error(405)
-
-    def send_head(self):  # type: ignore[no-untyped-def]
-        # kioku.wasm and kioku.data stored brotli-compressed (tools/dist.sh)
-        path = self.translate_path(self.path)
-        if not os.path.exists(path) and os.path.isfile(path + ".br"):
-            with open(path + ".br", "rb") as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", self.guess_type(path))
-            self.send_header("Content-Encoding", "br")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            return io.BytesIO(data)
-        return super().send_head()
-
     def do_GET(self) -> None:
-        if self.server_mode("GET"):
-            return
         if self.path.startswith(RELAY) and self.headers.get("Upgrade", "").lower() == "websocket":
             self.relay(self.path[len(RELAY) :])
         elif self.path == "/":
@@ -139,8 +87,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self) -> None:
-        if self.server_mode("POST"):
-            return
         if not (SELFTEST and self.path == "/__selftest/log"):
             self.send_error(404)
             return
@@ -164,18 +110,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_error(403, "relay is for the app page only")
             return
         host, _, port = target.rpartition(":")
-        if SERVER and target == SERVER.TARGET:
-            upstream = SERVER.connect()
-        elif not port.isdigit() or not any(fnmatch.fnmatch(target.lower(), a) for a in ALLOW):
+        if not port.isdigit() or not any(fnmatch.fnmatch(target.lower(), a) for a in ALLOW):
             self.send_error(403, f"not relayed: {target}")
             return
-        else:
-            try:
-                upstream = socket.create_connection((host, int(port)), timeout=20)
-                upstream.settimeout(None)
-            except OSError as e:
-                self.send_error(502, f"{target}: {e}")
-                return
+        try:
+            upstream = socket.create_connection((host, int(port)), timeout=20)
+            upstream.settimeout(None)
+        except OSError as e:
+            self.send_error(502, f"{target}: {e}")
+            return
         accept = base64.b64encode(
             hashlib.sha1((self.headers["Sec-WebSocket-Key"] + WS_GUID).encode()).digest()
         ).decode()
@@ -255,8 +198,4 @@ if TLS:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
     server.socket = context.wrap_socket(server.socket, server_side=True)
-try:
-    server.serve_forever()
-finally:
-    if SERVER:
-        SERVER.COLLECTION.shutdown()
+server.serve_forever()

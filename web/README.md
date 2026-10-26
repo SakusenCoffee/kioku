@@ -123,15 +123,9 @@ hosts in `RELAY_ALLOW` (`cloudflare/wrangler.jsonc`, AnkiWeb by default):
 on a public URL anyone can use it, so keep the list short and add only the
 services your add-ons need (`"ankiweb.net:443,*.ankiweb.net:443,*.amboss.com:443"`).
 Data stays in each visitor's browser (IndexedDB); nothing is stored on
-Cloudflare.
-
-## Self-hosting: collection on your server
-
-Served by `tools/serve.py` with `KIOKU_DATA=<folder>` (or the Docker image,
-`tools/docker.sh`), the collection stays on the server and the browser only
-shows it: one copy, no sync between browsers, one device at a time. See
-[docs/server.md](docs/server.md) and the manual's
-[Self-hosted server](../docs/manual/src/install/self-hosted.md).
+Cloudflare. To keep a collection on your own server instead, the Docker
+image in [`../desktop`](../desktop/README.md) runs Anki desktop there and
+streams it to the browser.
 
 ## Layout
 
@@ -140,10 +134,8 @@ shows it: one copy, no sync between browsers, one device at a time. See
 | `src/main.cpp` | CPython embedding, statically linked extension modules, the `_kioku_web` module and the `kioku_post` export |
 | `python/kioku_platform/` | the web platform layer for Kioku's shared `kioku` package: web views, in-process web server, files |
 | `shell/` | the app page, its service worker and JavaScript glue |
-| `server/` | server mode: Anki's core on the server, the lease, login (`kioku_server.py`, used by `tools/serve.py`) |
-| `docker/` | the server-mode image (`Dockerfile`, `compose.yaml`; built by `tools/docker.sh`) |
 | `cloudflare/` | hosting on Cloudflare Workers: `worker.js` (isolation headers, compressed wasm, socket relay), `wrangler.jsonc` |
 | `patches/` | patches for Rust crates, CPython and PyQt6 |
 | `tools/` | build scripts, `serve.py`, `dist.sh` (files for hosting), the node core test (`link_core.sh`, `core/`), the browser tests (`test/`: `boot.mjs`, `smoke.py`, `selftest.py` for Safari and iOS) |
 | `app/probe.py` | the first feasibility probe (Qt's `kioku.html` runs it) |
-| `docs/` | [architecture](docs/architecture.md), [server mode](docs/server.md), [fixes](docs/fixes.md), [testing](docs/testing.md) |
+| `docs/` | [architecture](docs/architecture.md), [fixes](docs/fixes.md), [testing](docs/testing.md) |

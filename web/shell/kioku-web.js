@@ -260,11 +260,19 @@
       if (frame) frame.style.background = color;
     },
 
+    // Like QtWebEngine's zoom factor: the page lays out in a viewport
+    // 1/factor the size and is scaled up to fill the view. CSS zoom on the
+    // page's <html> left Safari's viewport at full size, so a zoomed-in
+    // page filled only 1/factor of the view (blank below the reviewer's
+    // card), and a page load dropped it
     zoom(id, factor) {
       const frame = frames.get(id);
-      try {
-        frame.contentDocument.documentElement.style.zoom = String(factor);
-      } catch (e) {}
+      if (!frame) return;
+      const size = factor === 1 ? "100%" : `${100 / factor}%`;
+      frame.style.width = size;
+      frame.style.height = size;
+      frame.style.transformOrigin = "0 0";
+      frame.style.transform = factor === 1 ? "" : `scale(${factor})`;
     },
 
     // Only stop the page: once embedded, the element belongs to Qt, which

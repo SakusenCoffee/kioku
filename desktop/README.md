@@ -31,7 +31,11 @@ Upload / Files panel ◀───────────────▶ /config
   (the arm64 Qt WebEngine wheel links it; amd64's bundles its own).
 - **`/usr/local/bin/anki-session`** (the autostart): runs
   `anki -b /config/Anki2` from `/config/Desktop` and opens it again if it's
-  quit.
+  quit. A lock keeps it to one: with `SELKIES_DESKTOP`, the base's
+  `startwm_wayland.sh` starts the taskbar a fixed second after labwc and
+  starts the desktop again when labwc wasn't ready, and the first labwc's
+  autostart can outlive it; a second loop would start Anki every second,
+  and each new Anki raises the running one's main window.
 - **Stopping:** Anki handles TERM by closing the collection (and making its
   backup), but the base's `svc-de` finish sends TERM to the whole desktop at
   once and waits 5 s, and Qt exits at once when `svc-dbus` stops, so Anki

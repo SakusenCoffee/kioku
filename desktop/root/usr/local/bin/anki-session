@@ -4,6 +4,14 @@
 # `docker stop` sends TERM, which Anki answers by closing the collection
 # (and making its backup) before it exits.
 
+# Only one: svc-de can start the desktop again (LinuxServer's
+# startwm_wayland.sh gives up when SELKIES_DESKTOP's taskbar starts before
+# labwc is ready), and the first labwc's autostart can outlive it. A second
+# loop would start Anki every second, and each new Anki brings the running
+# one's main window to the front, over Add, Browse and the rest.
+exec 9>/tmp/anki-session.lock
+flock -n 9 || exit 0
+
 # Files dropped on the browser page land in ~/Desktop, and the browser's
 # Files panel downloads from there: Anki's open dialogs (import, images)
 # start in the working folder, its save dialogs (export) in Documents.
@@ -20,7 +28,7 @@ anki=(/opt/anki/bin/anki)
 trap 'kill -TERM "$pid" 2>/dev/null; wait "$pid"; exit 0' TERM INT HUP
 while true; do
     # shellcheck disable=SC2086
-    "${anki[@]}" -b /config/Anki2 $ANKI_ARGS &
+    "${anki[@]}" -b /config/Anki2 $ANKI_ARGS 9>&- &
     pid=$!
     wait "$pid"
     sleep 1

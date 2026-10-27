@@ -117,6 +117,7 @@ check "main window shows the deck list" '[ "$(echo "$out" | field state)" = deck
 check "mpv plays sound" '[[ "$(echo "$out" | field players)" == *Mpv* ]]'
 check "Anki has Arial and Webdings" '[ "$(echo "$out" | field arial)$(echo "$out" | field webdings)" = TrueTrue ]'
 check "SELKIES_DESKTOP: taskbar running" 'docker exec $NAME pgrep -f selkies-desktop >/dev/null'
+check "one anki-session" '[ "$(docker exec $NAME pgrep -fc "^/bin/bash /usr/local/bin/anki-session")" = 1 ]'
 
 # a note with media
 out=$(py 'import io, math, struct, wave

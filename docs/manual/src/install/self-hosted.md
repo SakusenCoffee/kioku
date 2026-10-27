@@ -33,6 +33,9 @@ services:
       TZ: Etc/UTC
       CUSTOM_USER: anki
       PASSWORD: change-me
+      SELKIES_DESKTOP: "true"
+    # devices:
+    #   - /dev/dri:/dev/dri
     volumes:
       - ./anki-config:/config
 ```
@@ -45,6 +48,11 @@ Set `TZ` to your time zone (for example `Europe/Berlin`): Anki's day starts
 by it. Everything Anki keeps is in `anki-config/Anki2`: profiles,
 collections, media, add-ons and backups (each profile's `backups` folder).
 Back that folder up.
+
+If the server has an Intel or AMD GPU (`/dev/dri`), uncomment `devices`:
+Anki's screen is then drawn and encoded by the GPU instead of the CPU,
+which uses much less CPU. Leave it commented out on a server without one,
+or the container won't start.
 
 The image is for 64-bit Intel/AMD and ARM servers.
 
@@ -115,6 +123,26 @@ the whole container.
   scaling settings.
 - **Copy and paste** text and images between your device and Anki (for
   example an image into the editor or Image Occlusion).
+- **The taskbar** (`SELKIES_DESKTOP`) switches between Anki's windows,
+  such as Browse and the editor behind the main window. Remove the line
+  for more room on a phone.
+
+## Fonts
+
+Shared decks often name Microsoft's fonts in their card styling (AnKing
+uses Arial, for example). Their licence doesn't allow them to be included
+in the image, so set `ANKI_MS_FONTS: "true"` to have the container download
+them from Microsoft's original packages (via the corefonts project on
+SourceForge) on its first start, which accepts
+[their licence](https://corefonts.sourceforge.net/eula.htm). The first
+start then takes a minute or two longer; the fonts are kept in
+`anki-config/.local/share/fonts`. They are Andale Mono, Arial, Arial Black,
+Comic Sans MS, Courier New, Georgia, Impact, Times New Roman, Trebuchet MS,
+Verdana and Webdings.
+
+Other fonts work the same way: put their files in
+`anki-config/.local/share/fonts` and restart Anki (**File › Exit**: it
+opens again).
 
 ## Files from your device
 
@@ -140,6 +168,8 @@ sideways for more room.
 | `PUID`, `PGID` | `1000` | the user that owns `anki-config` |
 | `TZ` | `Etc/UTC` | time zone (Anki's day starts by it) |
 | `ANKI_FIT_SCREEN` | | `true`: fit Anki on phones (above) |
+| `ANKI_MS_FONTS` | | `true`: download Microsoft's fonts ([Fonts](#fonts)) |
+| `SELKIES_DESKTOP` | | `true`: the taskbar |
 | `ANKI_ARGS` | | extra arguments for Anki |
 
 The image is built on LinuxServer's

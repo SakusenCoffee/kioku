@@ -22,6 +22,7 @@ RUN \
   test -n "$ANKI_PY_VERSION" && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
+    cabextract \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
     libasound2t64 \
@@ -48,7 +49,8 @@ RUN \
     /var/tmp/*
 
 COPY root/ /
-RUN chmod 755 /usr/local/bin/anki-session /usr/local/bin/anki-close
+RUN chmod 755 /usr/local/bin/anki-session /usr/local/bin/anki-close \
+    /usr/local/bin/anki-ms-fonts
 
 EXPOSE 3000 3001
 VOLUME /config

@@ -54,6 +54,22 @@ Upload / Files panel ◀───────────────▶ /config
   open at their normal size.
 - `SELKIES_ENABLE_BINARY_CLIPBOARD=true`: images copied in the browser can
   be pasted into the editor and Image Occlusion.
+- **`ANKI_MS_FONTS=true`** (s6-rc oneshot `init-anki-fonts`, before
+  `svc-de`, running `/usr/local/bin/anki-ms-fonts` as `abc`): Microsoft's
+  core fonts (Arial, Times New Roman, Verdana, ...), which shared decks
+  such as AnKing name in their styling. Their licence allows passing them
+  on only as Microsoft's own installers, so the image has none: on the
+  first start they are downloaded from the corefonts project on
+  SourceForge (in parallel: a mirror can take a minute for each file),
+  checked against Debian's `ttf-mscorefonts-installer` sums, unpacked with
+  `cabextract` into `/config/.local/share/fonts/msttcorefonts` (fontconfig
+  reads it) and kept there; a failed download is tried again at the next
+  start.
+- **Compose file:** `SELKIES_DESKTOP=true` (the base's taskbar, to switch
+  between Anki's windows) and, commented out, `/dev/dri` for the server's
+  GPU (the base then renders and encodes on it; without it everything is
+  drawn by the CPU). Docker refuses to start a container whose device is
+  missing, so it's left to servers that have one.
 
 ## Building and testing
 
@@ -69,7 +85,7 @@ script on Anki's main thread), and drives it through headless Chrome
 (`test/browser.mjs`): logging in, the first-run window seen in the stream
 and answered with the browser's keyboard, typing and clicking, Browse,
 a phone-size page (with `ANKI_FIT_SCREEN`: pages zoomed out, Browse
-maximized), sound reaching PulseAudio, dialogs not maximized,
+maximized), the Microsoft fonts downloaded and seen by Anki, the taskbar, sound reaching PulseAudio, dialogs not maximized,
 uploading a deck from the browser and importing it, downloading an export,
 syncing with Anki's sync server, quitting Anki, `docker stop` closing the
 collection, the data in a new container, and nginx and Caddy in front.

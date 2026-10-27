@@ -53,6 +53,7 @@ start() {
         -p 127.0.0.1:$PORT:3000 -p 127.0.0.1:$((PORT + 1)):3001 \
         -e PUID="$(id -u)" -e PGID="$(id -g)" -e TZ=Asia/Kolkata \
         -e CUSTOM_USER=anki -e PASSWORD=$PASS -e ANKI_FIT_SCREEN=true \
+        -e SELKIES_DESKTOP=true -e ANKI_MS_FONTS=true \
         -v "$cfg:/config" "$IMAGE" >/dev/null
     for _ in $(seq 120); do
         [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT/)" = 401 ] && return 0
@@ -76,6 +77,15 @@ if [ -z "$IMAGE" ]; then
 fi
 
 check "container starts, web page answers" start
+# ANKI_MS_FONTS: downloaded into /config before the desktop starts
+fonts() {
+    for _ in $(seq 600); do
+        [ -f "$cfg/.local/share/fonts/msttcorefonts/arial.ttf" ] && return 0
+        sleep 1
+    done
+    return 1
+}
+check "Microsoft fonts downloaded into /config" fonts
 
 # logging in
 code() { curl -sk -o /dev/null -w '%{http_code}' "$@"; }
@@ -93,17 +103,20 @@ check "profile opens after the browser's keys" 'opened 1'
 sleep 3
 
 out=$(py 'import sys, aqt, anki.buildinfo
-from aqt.qt import QT_VERSION_STR
+from aqt.qt import QT_VERSION_STR, QFontDatabase
 out.update(anki=anki.buildinfo.version, python=sys.version.split()[0], qt=QT_VERSION_STR,
     profile=mw.pm.name, state=mw.state, path=mw.col.path,
     deckbrowser="deck-browser" in mw.web.page().url().toString() or mw.web.page().url().toString(),
-    players=[type(p).__name__ for p in __import__("aqt.sound", fromlist=["x"]).av_player.players])')
+    players=[type(p).__name__ for p in __import__("aqt.sound", fromlist=["x"]).av_player.players],
+    arial="Arial" in QFontDatabase.families(), webdings="Webdings" in QFontDatabase.families())')
 echo "     $out"
 source "$here/../../shared/versions.env"
 check "Anki $ANKI_TAG" '[ "$(echo "$out" | field anki)" = "$ANKI_TAG" ]'
 check "collection on /config" '[[ "$(echo "$out" | field path)" == /config/Anki2/* ]]'
 check "main window shows the deck list" '[ "$(echo "$out" | field state)" = deckBrowser ]'
 check "mpv plays sound" '[[ "$(echo "$out" | field players)" == *Mpv* ]]'
+check "Anki has Arial and Webdings" '[ "$(echo "$out" | field arial)$(echo "$out" | field webdings)" = TrueTrue ]'
+check "SELKIES_DESKTOP: taskbar running" 'docker exec $NAME pgrep -f selkies-desktop >/dev/null'
 
 # a note with media
 out=$(py 'import io, math, struct, wave

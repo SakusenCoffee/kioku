@@ -25,6 +25,4 @@ If the server stops after a reboot, run Dopamine again and reopen Kioku. Force q
 
 The iOS deployment target is 16.0. The main build change is using Qt 6.9 and PyQt6 6.9, which still support iPadOS 16. Upstream Kioku currently targets iOS 17 or later.
 
-The IPA contains the app only. It does not include an Anki collection, profile, add-ons, dictionaries, audio files, credentials, or device settings. Those stay on your own devices.
-
 This is a community build of [Kioku by krmanik](https://github.com/krmanik/kioku), not an official upstream release. The source changes are on the [`ipados16` branch](https://github.com/SakusenCoffee/kioku/tree/ipados16).

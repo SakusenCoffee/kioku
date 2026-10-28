@@ -29,7 +29,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ios-${{ github.ref }}

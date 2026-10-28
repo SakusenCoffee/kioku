@@ -1,3 +1,5 @@
+> **iPadOS 16 build:** This fork has a [tested IPA](https://github.com/SakusenCoffee/kioku/releases/tag/ipados16-v0.2.5-1) for iPadOS 16. Read the [installation guide](IPADOS16.md) for TrollStore, AnkiConnect, and keeping Kioku active in the background.
+
 <p align="center">
   <img src="shared/icon/kioku.svg" width="120" alt="Kioku icon">
 </p>

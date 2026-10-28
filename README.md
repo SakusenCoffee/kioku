@@ -12,17 +12,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/krmanik/kioku?label=version"></a>
+  <a href="https://github.com/SakusenCoffee/kioku/releases/tag/ipados16-v0.2.5-1"><img alt="iPadOS 16 release" src="https://img.shields.io/badge/iPadOS%2016-v0.2.5-2563EB"></a>
   <img alt="Anki 26.09.3" src="https://img.shields.io/badge/Anki-26.09.3-2563EB">
-  <img alt="iOS 17+" src="https://img.shields.io/badge/iOS-17%2B-000000?logo=apple&logoColor=white">
+  <img alt="iPadOS 16+" src="https://img.shields.io/badge/iPadOS-16%2B-000000?logo=apple&logoColor=white">
   <img alt="Android 7+" src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white">
   <img alt="Docker" src="https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ED?logo=docker&logoColor=white">
   <a href="https://github.com/krmanik/kioku/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/krmanik/kioku?style=flat"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download iOS" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20iOS&color=000000&labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
-  <a href="https://forms.gle/fw4YMTdGbgD8nqPe8"><img alt="iOS TestFlight beta" src="https://img.shields.io/badge/TestFlight-join%20beta-0D96F6?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a><br>
+  <a href="https://github.com/SakusenCoffee/kioku/releases/tag/ipados16-v0.2.5-1"><img alt="Download iPadOS 16" src="https://img.shields.io/badge/Download-iPadOS%2016-000000?labelColor=333333&style=for-the-badge&logo=apple&logoColor=white"></a>
+  <br>
   <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download Android (native)" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20Android&color=1E7F3C&labelColor=333333&style=for-the-badge&logo=android&logoColor=white"></a>
   <a href="https://github.com/krmanik/kioku/releases/latest"><img alt="Download Android (Termux)" src="https://img.shields.io/github/v/release/krmanik/kioku?label=Download%20Termux&color=2563EB&labelColor=333333&style=for-the-badge&logo=gnubash&logoColor=white"></a><br>
   <a href="https://kioku.krmanik.workers.dev"><img alt="Try in the browser (experimental)" src="https://img.shields.io/badge/Try-Web%20%C2%B7%20experimental-B45309?labelColor=333333&style=for-the-badge&logo=googlechrome&logoColor=white"></a>
@@ -31,7 +31,7 @@
 
 <p align="center">
   <a href="https://krmanik.github.io/kioku/"><b>User manual</b></a> ·
-  <a href="https://github.com/krmanik/kioku/releases/latest">Releases</a> ·
+  <a href="https://github.com/SakusenCoffee/kioku/releases">Releases</a> ·
   <a href="docs/screenshots.md">Screenshots</a> ·
   <a href="https://github.com/krmanik/kioku/issues">Issues</a>
 </p>

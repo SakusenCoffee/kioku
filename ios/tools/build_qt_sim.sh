@@ -38,7 +38,7 @@ NOERR=-Wno-error=implicit-function-declaration
     cd "$BUILD/qtbase"
     "$SRC/qtbase/configure" -platform macx-ios-clang -sdk iphonesimulator -release \
         -nomake examples -nomake tests -prefix "$PREFIX" -qt-host-path "$QT/macos" -- \
-        -G Ninja -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+        -G Ninja -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
         -DCMAKE_C_FLAGS=$NOERR -DCMAKE_CXX_FLAGS=$NOERR \
         -DCMAKE_OBJC_FLAGS=$NOERR -DCMAKE_OBJCXX_FLAGS=$NOERR
     cmake --build . --parallel

@@ -54,7 +54,7 @@ source = {
                     "localizedDescription": f"Kioku {args.version}. Release notes: {release}/tag/v{args.version}",
                     "downloadURL": args.download,
                     "size": args.size,
-                    "minOSVersion": "17.0",
+                    "minOSVersion": "16.0",
                 }
             ],
             "appPermissions": {"entitlements": [], "privacy": {}},

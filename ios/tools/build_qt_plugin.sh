@@ -34,7 +34,7 @@ rm -rf "$BUILD"
 "$QT/ios/bin/qt-cmake" -S "$ROOT/qtplugin" -B "$BUILD" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DQT_HOST_PATH="$QT/macos" -DQTBASE_SRC="$SRC" \
     -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DQT_NO_PRIVATE_MODULE_WARNING=ON \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DQT_NO_PRIVATE_MODULE_WARNING=ON \
     > "$ROOT/build/qtplugin-cmake.log"
 cmake --build "$BUILD" > "$ROOT/build/qtplugin-build.log" 2>&1 || {
     grep -E 'error:|FAILED|undefined' -A3 "$ROOT/build/qtplugin-build.log" | head -40
